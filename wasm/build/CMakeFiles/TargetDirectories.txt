@@ -1,0 +1,3 @@
+C:/Users/pyflc/3AUTUMN/031_nwcpx/dtnsim-web/wasm/build/CMakeFiles/dtnsim.dir
+C:/Users/pyflc/3AUTUMN/031_nwcpx/dtnsim-web/wasm/build/CMakeFiles/edit_cache.dir
+C:/Users/pyflc/3AUTUMN/031_nwcpx/dtnsim-web/wasm/build/CMakeFiles/rebuild_cache.dir

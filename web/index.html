@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>dtnsim WASM demo</title>
+  <style>body{margin:0;font-family:system-ui,Segoe UI,Roboto,Helvetica,Arial} #start-wasm{position:fixed;left:8px;bottom:8px;z-index:1000;padding:8px 12px} canvas{position:fixed;right:8px;bottom:8px;border:1px solid #444;z-index:999}</style>
+</head>
+<body>
+  <button id="start-wasm">Start WASM demo</button>
+  <div id="dtn-status" style="position:fixed;left:8px;bottom:48px;z-index:1000;color:#fff;background:#0008;padding:4px 6px;font-size:12px">status: idle</div>
+  <canvas id="dtn-canvas" width="800" height="600" aria-label="dtnsim canvas"></canvas>
+
+  <script src="dtnsim.js"></script>
+  <script>
+  // Minimal, robust helpers to read NodePositionsBuffer metadata and create zero-copy Float32 views
+  function readNodePositionsMeta() {
+    if (!Module || typeof Module._dtnsim_get_node_positions !== 'function') return null;
+    const metaPtr = Module._dtnsim_get_node_positions(); // numeric pointer (0 if not available)
+    if (!metaPtr) { return null; }
+    const heap = Module.HEAPU8 || (Module.HEAPU8 = new Uint8Array(Module.memory.buffer));
+    if (heap.byteLength < metaPtr + 24) { console.warn('Metadata out-of-bounds'); return null; }
+    const dv = new DataView(heap.buffer, metaPtr, 24);
+    return {
+      positionsPtr: dv.getUint32(0, true),
+      idsPtr: dv.getUint32(4, true),
+      count: dv.getUint32(8, true),
+      stride: dv.getUint32(12, true),
+      version: dv.getUint32(16, true),
+    };
+  }
+
+  function getPositionsFloatArray(meta) {
+    if (!meta || !meta.positionsPtr || meta.count === 0) return null;
+    // Ensure HEAPF32 is available; lazily initialize view from Module.memory
+    if (!Module.HEAPF32) Module.HEAPF32 = new Float32Array(Module.memory.buffer);
+    const elemOffset = meta.positionsPtr >>> 2; // byte -> float index
+    const len = meta.count * 3;
+    if ((elemOffset + len) > Module.HEAPF32.length) { console.warn('Positions buffer out-of-bounds'); return null; }
+    return Module.HEAPF32.subarray(elemOffset, elemOffset + len);
+  }
+
+  // Demo: start button initializes WASM module (factory) if needed and runs a simple WebGL renderer
+  (function setupDemo(){
+    const btn = document.getElementById('start-wasm');
+    const canvas = document.getElementById('dtn-canvas');
+    const gl = canvas.getContext('webgl');
+    if (!gl) { console.warn('WebGL unavailable'); btn.disabled = true; return; }
+
+    function compileShader(type, src){ const s=gl.createShader(type); gl.shaderSource(s, src); gl.compileShader(s); if(!gl.getShaderParameter(s, gl.COMPILE_STATUS)){ console.error(gl.getShaderInfoLog(s)); return null; } return s; }
+    const vs = `attribute vec3 a_pos; uniform vec2 u_center; uniform float u_scale; void main(){ vec2 p=(a_pos.xy - u_center) * u_scale; gl_Position = vec4(p,0.0,1.0); gl_PointSize = 3.0; }`;
+    const fs = `precision mediump float; void main(){ gl_FragColor = vec4(0.0,0.6,1.0,1.0); }`;
+    const prog = gl.createProgram(); const sv = compileShader(gl.VERTEX_SHADER, vs); const sf = compileShader(gl.FRAGMENT_SHADER, fs); gl.attachShader(prog, sv); gl.attachShader(prog, sf); gl.linkProgram(prog);
+    if(!gl.getProgramParameter(prog, gl.LINK_STATUS)){ console.error(gl.getProgramInfoLog(prog)); btn.disabled=true; return; }
+    gl.useProgram(prog);
+    const a_pos = gl.getAttribLocation(prog, 'a_pos'); const u_center = gl.getUniformLocation(prog, 'u_center'); const u_scale = gl.getUniformLocation(prog, 'u_scale');
+    const buf = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, buf); gl.enableVertexAttribArray(a_pos); gl.vertexAttribPointer(a_pos, 3, gl.FLOAT, false, 0, 0);
+
+    let lastVersion = 0;
+    btn.addEventListener('click', async () => {
+      btn.disabled = true; btn.textContent = 'Running WASM demo';
+      // instantiate factory if necessary
+      if (typeof Module === 'undefined' || !Module || typeof Module._dtnsim_init !== 'function') {
+        if (typeof createDTNSIMModule === 'function') {
+          try { Module = await createDTNSIMModule(); window.Module = Module; } catch(e) { console.warn('Failed to instantiate WASM module', e); btn.disabled = false; btn.textContent = 'Start WASM demo'; return; }
+        } else {
+          console.warn('WASM module factory not found'); btn.disabled = false; btn.textContent = 'Start WASM demo'; return;
+        }
+      }
+
+      const rc = Module._dtnsim_init(200);
+      console.log('dtnsim_init rc', rc);
+      window.__dtnsim_init_logged = true;
+      const statusEl = document.getElementById('dtn-status'); if (statusEl) statusEl.textContent = 'initialized: rc=' + rc;
+
+      function frame(){
+        Module._dtnsim_step(1.0/60.0);
+        const meta = readNodePositionsMeta();
+        if (!meta || meta.count === 0) { requestAnimationFrame(frame); return; }
+        if (meta.version !== lastVersion) {
+          lastVersion = meta.version;
+          console.log('NodePositionsBuffer updated: count=' + meta.count + ' version=' + meta.version);
+          window.__dtnsim_positions_updated = true;
+          const s = document.getElementById('dtn-status'); if (s) s.textContent = 'positions: count=' + meta.count + ' ver=' + meta.version;
+        }
+        const floats = getPositionsFloatArray(meta);
+        if (!floats) { requestAnimationFrame(frame); return; }
+
+        // compute center & scale
+        let minx=Infinity,miny=Infinity,maxx=-Infinity,maxy=-Infinity;
+        for(let i=0,n=meta.count;i<n;++i){ const x=floats[i*3+0], y=floats[i*3+1]; if(x<minx)minx=x; if(y<miny)miny=y; if(x>maxx)maxx=x; if(y>maxy)maxy=y; }
+        const cx=(minx+maxx)*0.5, cy=(miny+maxy)*0.5; const dx=Math.max(1.0, maxx-minx), dy=Math.max(1.0,maxy-miny); const scale = 2.0/Math.max(dx,dy);
+
+        gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+        gl.bufferData(gl.ARRAY_BUFFER, floats, gl.DYNAMIC_DRAW);
+        gl.uniform2f(u_center, cx, cy);
+        gl.uniform1f(u_scale, scale);
+        gl.clearColor(0,0,0,1); gl.clear(gl.COLOR_BUFFER_BIT);
+        gl.drawArrays(gl.POINTS, 0, meta.count);
+
+        requestAnimationFrame(frame);
+      }
+      frame();
+    });
+  })();
+  </script>
+</body>
+</html>
