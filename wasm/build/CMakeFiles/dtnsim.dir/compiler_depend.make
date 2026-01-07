@@ -13,58 +13,430 @@ CMakeFiles/dtnsim.dir/bindings.cpp.o: C:/Users/pyflc/3AUTUMN/031_nwcpx/dtnsim-we
   C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/__configuration/compiler.h \
   C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/__configuration/language.h \
   C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/__configuration/platform.h \
+  C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/__cstddef/nullptr_t.h \
+  C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/__cstddef/size_t.h \
+  C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/__fwd/functional.h \
+  C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/__math/abs.h \
+  C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/__math/copysign.h \
+  C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/__math/error_functions.h \
+  C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/__math/exponential_functions.h \
+  C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/__math/fdim.h \
+  C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/__math/fma.h \
+  C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/__math/gamma.h \
+  C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/__math/hyperbolic_functions.h \
+  C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/__math/hypot.h \
+  C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/__math/inverse_hyperbolic_functions.h \
+  C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/__math/inverse_trigonometric_functions.h \
+  C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/__math/logarithms.h \
+  C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/__math/min_max.h \
+  C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/__math/modulo.h \
+  C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/__math/remainder.h \
+  C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/__math/roots.h \
+  C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/__math/rounding_functions.h \
+  C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/__math/traits.h \
+  C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/__math/trigonometric_functions.h \
+  C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/__type_traits/add_cv_quals.h \
+  C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/__type_traits/add_lvalue_reference.h \
+  C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/__type_traits/add_pointer.h \
+  C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/__type_traits/add_rvalue_reference.h \
+  C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/__type_traits/aligned_storage.h \
+  C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/__type_traits/aligned_union.h \
+  C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/__type_traits/alignment_of.h \
+  C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/__type_traits/common_type.h \
+  C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/__type_traits/conditional.h \
+  C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/__type_traits/conjunction.h \
+  C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/__type_traits/copy_cv.h \
+  C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/__type_traits/decay.h \
+  C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/__type_traits/disjunction.h \
+  C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/__type_traits/enable_if.h \
+  C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/__type_traits/extent.h \
+  C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/__type_traits/has_unique_object_representation.h \
+  C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/__type_traits/has_virtual_destructor.h \
+  C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/__type_traits/integral_constant.h \
+  C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/__type_traits/invoke.h \
+  C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/__type_traits/is_abstract.h \
+  C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/__type_traits/is_aggregate.h \
+  C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/__type_traits/is_arithmetic.h \
+  C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/__type_traits/is_array.h \
+  C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/__type_traits/is_assignable.h \
+  C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/__type_traits/is_base_of.h \
+  C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/__type_traits/is_class.h \
+  C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/__type_traits/is_compound.h \
+  C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/__type_traits/is_const.h \
+  C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/__type_traits/is_constructible.h \
+  C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/__type_traits/is_convertible.h \
+  C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/__type_traits/is_core_convertible.h \
+  C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/__type_traits/is_destructible.h \
+  C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/__type_traits/is_empty.h \
+  C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/__type_traits/is_enum.h \
+  C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/__type_traits/is_final.h \
+  C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/__type_traits/is_floating_point.h \
+  C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/__type_traits/is_function.h \
+  C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/__type_traits/is_fundamental.h \
+  C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/__type_traits/is_integral.h \
+  C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/__type_traits/is_literal_type.h \
+  C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/__type_traits/is_member_pointer.h \
+  C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/__type_traits/is_nothrow_assignable.h \
+  C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/__type_traits/is_nothrow_constructible.h \
+  C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/__type_traits/is_nothrow_destructible.h \
+  C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/__type_traits/is_null_pointer.h \
+  C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/__type_traits/is_object.h \
+  C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/__type_traits/is_pod.h \
+  C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/__type_traits/is_pointer.h \
+  C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/__type_traits/is_polymorphic.h \
+  C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/__type_traits/is_reference.h \
+  C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/__type_traits/is_reference_wrapper.h \
+  C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/__type_traits/is_referenceable.h \
+  C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/__type_traits/is_same.h \
+  C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/__type_traits/is_scalar.h \
+  C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/__type_traits/is_signed.h \
+  C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/__type_traits/is_standard_layout.h \
+  C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/__type_traits/is_swappable.h \
+  C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/__type_traits/is_trivial.h \
+  C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/__type_traits/is_trivially_assignable.h \
+  C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/__type_traits/is_trivially_constructible.h \
+  C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/__type_traits/is_trivially_copyable.h \
+  C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/__type_traits/is_trivially_destructible.h \
+  C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/__type_traits/is_union.h \
+  C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/__type_traits/is_unsigned.h \
+  C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/__type_traits/is_void.h \
+  C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/__type_traits/is_volatile.h \
+  C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/__type_traits/make_signed.h \
+  C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/__type_traits/make_unsigned.h \
+  C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/__type_traits/nat.h \
+  C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/__type_traits/negation.h \
+  C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/__type_traits/promote.h \
+  C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/__type_traits/rank.h \
+  C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/__type_traits/remove_all_extents.h \
+  C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/__type_traits/remove_const.h \
+  C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/__type_traits/remove_cv.h \
+  C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/__type_traits/remove_cvref.h \
+  C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/__type_traits/remove_extent.h \
+  C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/__type_traits/remove_pointer.h \
+  C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/__type_traits/remove_reference.h \
+  C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/__type_traits/remove_volatile.h \
+  C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/__type_traits/result_of.h \
+  C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/__type_traits/type_identity.h \
+  C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/__type_traits/type_list.h \
+  C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/__type_traits/underlying_type.h \
+  C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/__type_traits/void_t.h \
+  C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/__undef_macros \
+  C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/__utility/declval.h \
+  C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/__utility/empty.h \
+  C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/__utility/forward.h \
+  C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/cstdint \
+  C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/float.h \
+  C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/limits \
+  C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/math.h \
   C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/stdlib.h \
   C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/string.h \
+  C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/type_traits \
+  C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/version \
+  C:/emsdk/upstream/emscripten/cache/sysroot/include/compat/math.h \
   C:/emsdk/upstream/emscripten/cache/sysroot/include/compat/stdlib.h \
   C:/emsdk/upstream/emscripten/cache/sysroot/include/compat/string.h \
   C:/emsdk/upstream/emscripten/cache/sysroot/include/features.h \
+  C:/emsdk/upstream/emscripten/cache/sysroot/include/float.h \
+  C:/emsdk/upstream/emscripten/cache/sysroot/include/math.h \
   C:/emsdk/upstream/emscripten/cache/sysroot/include/stdint.h \
   C:/emsdk/upstream/emscripten/cache/sysroot/include/stdlib.h \
   C:/emsdk/upstream/emscripten/cache/sysroot/include/string.h \
   C:/emsdk/upstream/emscripten/cache/sysroot/include/strings.h \
+  C:/emsdk/upstream/lib/clang/22/include/__float_float.h \
+  C:/emsdk/upstream/lib/clang/22/include/__float_header_macro.h \
+  C:/emsdk/upstream/lib/clang/22/include/__float_infinity_nan.h \
+  C:/emsdk/upstream/lib/clang/22/include/float.h \
   C:/emsdk/upstream/lib/clang/22/include/stdint.h
 
 
 C:/emsdk/upstream/lib/clang/22/include/stdint.h:
 
-C:/emsdk/upstream/emscripten/cache/sysroot/include/compat/string.h:
+C:/emsdk/upstream/lib/clang/22/include/float.h:
 
-C:/emsdk/upstream/emscripten/cache/sysroot/include/compat/stdlib.h:
+C:/emsdk/upstream/lib/clang/22/include/__float_infinity_nan.h:
+
+C:/emsdk/upstream/lib/clang/22/include/__float_float.h:
 
 C:/emsdk/upstream/emscripten/cache/sysroot/include/strings.h:
 
-C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/string.h:
+C:/emsdk/upstream/emscripten/cache/sysroot/include/stdlib.h:
+
+C:/emsdk/upstream/emscripten/cache/sysroot/include/compat/string.h:
+
+C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/version:
+
+C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/type_traits:
+
+C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/__type_traits/is_base_of.h:
+
+C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/__type_traits/is_arithmetic.h:
+
+C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/__type_traits/is_aggregate.h:
+
+C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/__type_traits/integral_constant.h:
+
+C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/__type_traits/disjunction.h:
+
+C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/__type_traits/decay.h:
+
+C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/__utility/empty.h:
+
+C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/__type_traits/conditional.h:
+
+C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/__type_traits/alignment_of.h:
+
+C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/__type_traits/extent.h:
+
+C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/__type_traits/aligned_union.h:
+
+C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/__type_traits/is_trivially_assignable.h:
+
+C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/__type_traits/promote.h:
+
+C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/__type_traits/add_lvalue_reference.h:
+
+C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/__type_traits/is_union.h:
+
+C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/__math/error_functions.h:
+
+C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/__type_traits/is_abstract.h:
+
+C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/__math/trigonometric_functions.h:
+
+C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/__type_traits/common_type.h:
+
+C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/__math/hypot.h:
+
+C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/__math/min_max.h:
 
 C:/Users/pyflc/3AUTUMN/031_nwcpx/dtnsim-web/wasm/bindings.cpp:
 
-C:/Users/pyflc/3AUTUMN/031_nwcpx/dtnsim-web/wasm/dtnsim_api.h:
-
-C:/emsdk/upstream/emscripten/cache/sysroot/include/string.h:
+C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/__math/traits.h:
 
 C:/emsdk/upstream/emscripten/cache/sysroot/include/stdint.h:
 
-C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/__configuration/compiler.h:
+C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/__math/rounding_functions.h:
 
-C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/stdlib.h:
+C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/__type_traits/is_referenceable.h:
 
-C:/emsdk/upstream/emscripten/cache/sysroot/include/alloca.h:
+C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/__type_traits/remove_pointer.h:
 
-C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/__configuration/language.h:
+C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/__math/roots.h:
 
-C:/emsdk/upstream/emscripten/cache/sysroot/include/bits/alltypes.h:
+C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/__type_traits/add_rvalue_reference.h:
 
-C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/__config_site:
+C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/__math/remainder.h:
 
-C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/__configuration/availability.h:
+C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/__math/fdim.h:
 
-C:/emsdk/upstream/emscripten/cache/sysroot/include/bits/stdint.h:
+C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/__configuration/platform.h:
+
+C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/__type_traits/is_class.h:
+
+C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/__math/hyperbolic_functions.h:
 
 C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/__config:
 
+C:/emsdk/upstream/lib/clang/22/include/__float_header_macro.h:
+
+C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/__type_traits/type_identity.h:
+
+C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/__type_traits/invoke.h:
+
+C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/__config_site:
+
+C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/__math/inverse_trigonometric_functions.h:
+
+C:/emsdk/upstream/emscripten/cache/sysroot/include/alloca.h:
+
+C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/__type_traits/enable_if.h:
+
+C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/__type_traits/is_array.h:
+
+C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/__math/inverse_hyperbolic_functions.h:
+
+C:/emsdk/upstream/emscripten/cache/sysroot/include/float.h:
+
+C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/__type_traits/is_member_pointer.h:
+
 C:/emsdk/upstream/emscripten/cache/sysroot/include/features.h:
+
+C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/__type_traits/aligned_storage.h:
+
+C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/__type_traits/conjunction.h:
+
+C:/Users/pyflc/3AUTUMN/031_nwcpx/dtnsim-web/wasm/dtnsim_api.h:
+
+C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/__type_traits/rank.h:
+
+C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/__type_traits/remove_reference.h:
+
+C:/emsdk/upstream/emscripten/cache/sysroot/include/string.h:
+
+C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/__type_traits/has_virtual_destructor.h:
+
+C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/__type_traits/is_trivially_destructible.h:
+
+C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/__math/copysign.h:
+
+C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/__math/fma.h:
+
+C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/math.h:
+
+C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/__type_traits/is_constructible.h:
+
+C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/__type_traits/add_pointer.h:
+
+C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/__type_traits/copy_cv.h:
+
+C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/__math/gamma.h:
+
+C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/__type_traits/is_const.h:
 
 C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/__configuration/abi.h:
 
-C:/emsdk/upstream/emscripten/cache/sysroot/include/stdlib.h:
+C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/__type_traits/has_unique_object_representation.h:
 
-C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/__configuration/platform.h:
+C:/emsdk/upstream/emscripten/cache/sysroot/include/bits/stdint.h:
+
+C:/emsdk/upstream/emscripten/cache/sysroot/include/bits/alltypes.h:
+
+C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/__cstddef/nullptr_t.h:
+
+C:/emsdk/upstream/emscripten/cache/sysroot/include/compat/stdlib.h:
+
+C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/__math/modulo.h:
+
+C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/__math/logarithms.h:
+
+C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/__type_traits/is_compound.h:
+
+C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/__type_traits/is_floating_point.h:
+
+C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/__type_traits/is_nothrow_assignable.h:
+
+C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/__type_traits/is_convertible.h:
+
+C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/__cstddef/size_t.h:
+
+C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/__type_traits/is_core_convertible.h:
+
+C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/__type_traits/is_destructible.h:
+
+C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/__type_traits/is_empty.h:
+
+C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/__type_traits/remove_cv.h:
+
+C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/__type_traits/is_assignable.h:
+
+C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/__type_traits/is_function.h:
+
+C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/__type_traits/is_reference_wrapper.h:
+
+C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/__configuration/compiler.h:
+
+C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/__type_traits/is_fundamental.h:
+
+C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/stdlib.h:
+
+C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/__type_traits/is_integral.h:
+
+C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/__type_traits/is_literal_type.h:
+
+C:/emsdk/upstream/emscripten/cache/sysroot/include/math.h:
+
+C:/emsdk/upstream/emscripten/cache/sysroot/include/compat/math.h:
+
+C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/__type_traits/is_nothrow_constructible.h:
+
+C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/__type_traits/is_nothrow_destructible.h:
+
+C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/__type_traits/is_null_pointer.h:
+
+C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/__utility/forward.h:
+
+C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/__type_traits/is_object.h:
+
+C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/__type_traits/is_pointer.h:
+
+C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/__type_traits/is_polymorphic.h:
+
+C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/__type_traits/underlying_type.h:
+
+C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/__configuration/language.h:
+
+C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/__math/exponential_functions.h:
+
+C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/cstdint:
+
+C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/__type_traits/is_reference.h:
+
+C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/__configuration/availability.h:
+
+C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/__type_traits/is_scalar.h:
+
+C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/__type_traits/is_signed.h:
+
+C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/__type_traits/is_standard_layout.h:
+
+C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/__type_traits/is_volatile.h:
+
+C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/__type_traits/is_swappable.h:
+
+C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/__type_traits/is_trivial.h:
+
+C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/__type_traits/is_trivially_constructible.h:
+
+C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/__type_traits/negation.h:
+
+C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/__type_traits/remove_extent.h:
+
+C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/__type_traits/is_trivially_copyable.h:
+
+C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/__type_traits/is_enum.h:
+
+C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/__fwd/functional.h:
+
+C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/__type_traits/is_unsigned.h:
+
+C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/__type_traits/add_cv_quals.h:
+
+C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/__type_traits/is_void.h:
+
+C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/float.h:
+
+C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/__type_traits/make_unsigned.h:
+
+C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/__type_traits/nat.h:
+
+C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/__type_traits/remove_all_extents.h:
+
+C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/__type_traits/remove_cvref.h:
+
+C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/__type_traits/remove_const.h:
+
+C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/__type_traits/remove_volatile.h:
+
+C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/__type_traits/is_same.h:
+
+C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/__type_traits/result_of.h:
+
+C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/__type_traits/type_list.h:
+
+C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/string.h:
+
+C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/__type_traits/make_signed.h:
+
+C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/__math/abs.h:
+
+C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/__type_traits/is_pod.h:
+
+C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/__type_traits/void_t.h:
+
+C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/__undef_macros:
+
+C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/__utility/declval.h:
+
+C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/__type_traits/is_final.h:
+
+C:/emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/limits:

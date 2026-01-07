@@ -13,14 +13,18 @@
 
   <script src="dtnsim.js"></script>
   <script>
-  // Minimal, robust helpers to read NodePositionsBuffer metadata and create zero-copy Float32 views
-  function readNodePositionsMeta() {
-    if (!Module || typeof Module._dtnsim_get_node_positions !== 'function') return null;
+  // Use Emscripten factory pattern for WASM module
+  let Module = null;
+  function readNodePositionsMeta(Module) {
+    if (!Module || typeof Module._dtnsim_get_node_positions !== 'function') throw new Error('WASM Module not initialized');
     const metaPtr = Module._dtnsim_get_node_positions(); // numeric pointer (0 if not available)
-    if (!metaPtr) { return null; }
-    const heap = Module.HEAPU8 || (Module.HEAPU8 = new Uint8Array(Module.memory.buffer));
-    if (heap.byteLength < metaPtr + 24) { console.warn('Metadata out-of-bounds'); return null; }
-    const dv = new DataView(heap.buffer, metaPtr, 24);
+    if (!metaPtr) { throw new Error('dtnsim_get_node_positions returned 0'); }
+    // Use Emscripten HEAPU8.buffer for memory
+    const memBuffer = Module.HEAPU8?.buffer;
+    if (!memBuffer) { throw new Error('No WASM HEAPU8 buffer found'); }
+    const heap = Module.HEAPU8;
+    if (heap.byteLength < metaPtr + 24) { throw new Error('Metadata out-of-bounds'); }
+    const dv = new DataView(memBuffer, metaPtr, 24);
     return {
       positionsPtr: dv.getUint32(0, true),
       idsPtr: dv.getUint32(4, true),
@@ -30,17 +34,17 @@
     };
   }
 
-  function getPositionsFloatArray(meta) {
+  function getPositionsFloatArray(Module, meta) {
     if (!meta || !meta.positionsPtr || meta.count === 0) return null;
-    // Ensure HEAPF32 is available; lazily initialize view from Module.memory
-    if (!Module.HEAPF32) Module.HEAPF32 = new Float32Array(Module.memory.buffer);
+    const memBuffer = Module.HEAPF32?.buffer;
+    if (!memBuffer) { console.warn('No WASM HEAPF32 buffer found'); return null; }
+    // HEAPF32 is always present after WASM init
     const elemOffset = meta.positionsPtr >>> 2; // byte -> float index
     const len = meta.count * 3;
     if ((elemOffset + len) > Module.HEAPF32.length) { console.warn('Positions buffer out-of-bounds'); return null; }
     return Module.HEAPF32.subarray(elemOffset, elemOffset + len);
   }
 
-  // Demo: start button initializes WASM module (factory) if needed and runs a simple WebGL renderer
   (function setupDemo(){
     const btn = document.getElementById('start-wasm');
     const canvas = document.getElementById('dtn-canvas');
@@ -58,51 +62,77 @@
 
     let lastVersion = 0;
     btn.addEventListener('click', async () => {
-      btn.disabled = true; btn.textContent = 'Running WASM demo';
-      // instantiate factory if necessary
-      if (typeof Module === 'undefined' || !Module || typeof Module._dtnsim_init !== 'function') {
-        if (typeof createDTNSIMModule === 'function') {
-          try { Module = await createDTNSIMModule(); window.Module = Module; } catch(e) { console.warn('Failed to instantiate WASM module', e); btn.disabled = false; btn.textContent = 'Start WASM demo'; return; }
-        } else {
-          console.warn('WASM module factory not found'); btn.disabled = false; btn.textContent = 'Start WASM demo'; return;
-        }
+      console.log('Start button clicked');
+      if (!Module) {
+        btn.disabled = true;
+        btn.textContent = 'Loading WASM...';
+        Module = await createDTNSIMModule();
+        btn.textContent = 'Start WASM demo';
+        btn.disabled = false;
+        console.log('WASM module loaded');
       }
 
-      const rc = Module._dtnsim_init(200);
-      console.log('dtnsim_init rc', rc);
-      window.__dtnsim_init_logged = true;
-      const statusEl = document.getElementById('dtn-status'); if (statusEl) statusEl.textContent = 'initialized: rc=' + rc;
+      function startWasmDemo() {
+        console.log('WASM runtime initialized');
+        // Debug: log HEAPU8/HEAPF32 objects
+        console.log('Module.HEAPU8:', Module.HEAPU8);
+        console.log('Module.HEAPF32:', Module.HEAPF32);
 
-      function frame(){
-        Module._dtnsim_step(1.0/60.0);
-        const meta = readNodePositionsMeta();
-        if (!meta || meta.count === 0) { requestAnimationFrame(frame); return; }
-        if (meta.version !== lastVersion) {
-          lastVersion = meta.version;
-          console.log('NodePositionsBuffer updated: count=' + meta.count + ' version=' + meta.version);
-          window.__dtnsim_positions_updated = true;
-          const s = document.getElementById('dtn-status'); if (s) s.textContent = 'positions: count=' + meta.count + ' ver=' + meta.version;
+        // Initialize simulation (example: 100 agents)
+        Module._dtnsim_init(100);
+        console.log('dtnsim_init called');
+
+        // Animation loop
+        function frame() {
+          try {
+            console.log('frame called');
+            console.log('Module keys:', Object.keys(Module));
+            Module._dtnsim_step(0.016);
+            const meta = readNodePositionsMeta(Module);
+            console.log('meta:', meta);
+            if (meta && meta.version !== lastVersion) {
+              lastVersion = meta.version;
+              const arr = getPositionsFloatArray(Module, meta);
+              console.log('arr:', arr);
+              if (arr && arr.length > 0) {
+                gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+                gl.bufferData(gl.ARRAY_BUFFER, arr, gl.DYNAMIC_DRAW);
+                // Center and scale
+                let minx=1e9,maxx=-1e9,miny=1e9,maxy=-1e9;
+                for(let i=0;i<arr.length;i+=3){
+                  if(arr[i]<minx)minx=arr[i];if(arr[i]>maxx)maxx=arr[i];
+                  if(arr[i+1]<miny)miny=arr[i+1];if(arr[i+1]>maxy)maxy=arr[i+1];
+                }
+                const cx=(minx+maxx)/2,cy=(miny+maxy)/2;
+                const scale=2/Math.max(maxx-minx,maxy-miny,1);
+                gl.uniform2f(u_center,cx,cy);
+                gl.uniform1f(u_scale,scale);
+                gl.clearColor(0.06, 0.07, 0.10, 1.0); // 適宜微調整
+                gl.clear(gl.COLOR_BUFFER_BIT);
+                gl.drawArrays(gl.POINTS,0,arr.length/3);
+              } else {
+                console.warn('No positions to draw');
+              }
+            }
+            requestAnimationFrame(frame);
+          } catch (e) {
+            console.error('WASM frame error:', e);
+            const status = document.getElementById('dtn-status');
+            if (status) status.textContent = 'WASM error: ' + e.message;
+          }
         }
-        const floats = getPositionsFloatArray(meta);
-        if (!floats) { requestAnimationFrame(frame); return; }
-
-        // compute center & scale
-        let minx=Infinity,miny=Infinity,maxx=-Infinity,maxy=-Infinity;
-        for(let i=0,n=meta.count;i<n;++i){ const x=floats[i*3+0], y=floats[i*3+1]; if(x<minx)minx=x; if(y<miny)miny=y; if(x>maxx)maxx=x; if(y>maxy)maxy=y; }
-        const cx=(minx+maxx)*0.5, cy=(miny+maxy)*0.5; const dx=Math.max(1.0, maxx-minx), dy=Math.max(1.0,maxy-miny); const scale = 2.0/Math.max(dx,dy);
-
-        gl.bindBuffer(gl.ARRAY_BUFFER, buf);
-        gl.bufferData(gl.ARRAY_BUFFER, floats, gl.DYNAMIC_DRAW);
-        gl.uniform2f(u_center, cx, cy);
-        gl.uniform1f(u_scale, scale);
-        gl.clearColor(0,0,0,1); gl.clear(gl.COLOR_BUFFER_BIT);
-        gl.drawArrays(gl.POINTS, 0, meta.count);
-
         requestAnimationFrame(frame);
       }
-      frame();
+
+      // If runtime already initialized, start immediately
+      if (Module.calledRun || Module._dtnsim_init) {
+        startWasmDemo();
+      } else {
+        Module.onRuntimeInitialized = startWasmDemo;
+      }
     });
   })();
+    // ...existing code...
   </script>
 </body>
 </html>

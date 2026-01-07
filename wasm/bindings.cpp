@@ -119,9 +119,11 @@ int dtnsim_init(uint32_t max_nodes) {
         g_agents[i].x = (float)col * spacing;
         g_agents[i].y = (float)row * spacing;
         g_agents[i].z = 0.0f;
-        /* simple velocity pattern: horizontal oscillation */
-        g_agents[i].vx = 0.5f + (float)(i % 5) * 0.1f;
-        g_agents[i].vy = 0.2f + (float)(i % 7) * 0.05f;
+        // Random walk: random direction and speed
+        float theta = ((float)rand() / (float)RAND_MAX) * 2.0f * (float)M_PI;
+        float v = 1.0f; // constant speed, can be randomized if needed
+        g_agents[i].vx = v * cosf(theta);
+        g_agents[i].vy = v * sinf(theta);
         g_agents[i].vz = 0.0f;
         g_agents[i].id = i + 1;
 
@@ -231,11 +233,16 @@ void dtnsim_step(double dt) {
     float minx = FLT_MAX, miny = FLT_MAX, maxx = -FLT_MAX, maxy = -FLT_MAX;
     for (uint32_t i = 0; i < g_agent_count; ++i) {
         Agent *a = &g_agents[i];
-        /* simple Euler integration */
+        // Random walk: update direction and speed each step
+        float theta = ((float)rand() / (float)RAND_MAX) * 2.0f * (float)M_PI;
+        float v = 1.0f; // constant speed, can be randomized if needed
+        a->vx = v * cosf(theta);
+        a->vy = v * sinf(theta);
+        // Euler integration
         a->x += a->vx * (float)dt;
         a->y += a->vy * (float)dt;
         a->z += a->vz * (float)dt;
-        /* wrap or clamp to keep values reasonable for demo */
+        // wrap or clamp to keep values reasonable for demo
         if (a->x < -1000.0f) a->x = 1000.0f; else if (a->x > 1000.0f) a->x = -1000.0f;
         if (a->y < -1000.0f) a->y = 1000.0f; else if (a->y > 1000.0f) a->y = -1000.0f;
 
