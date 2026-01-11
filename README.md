@@ -30,12 +30,10 @@ Directory structure
 	- `dtnsim_api.h` : JS / WASM 間の C ABI
 	- `CMakeLists.txt` : Emscripten 用ビルド設定
 	- `build/` など : CMake / Emscripten のビルド成果物（gitignore 対象）
-- `web/`
+- `docs/`
 	- `index.html` : UI + WebGL レンダラ + WASM ローダ
 	- `dtnsim.js` / `dtnsim.wasm` : Emscripten で生成した WASM モジュール
 	- `main.js` など : 補助的な JS（必要に応じて利用）
-- `docs/`
-	- `docs/ai/TASK2.md` : ルーティングとリセット動作に関する要件メモ
 
 Simulation model
 ----------------
@@ -84,7 +82,7 @@ emcmake cmake -B build -S .
 cmake --build build --config Release
 
 # 結果として build/ 以下に dtnsim.js / dtnsim.wasm が生成されます
-# 必要に応じて web/ に配置します（本リポジトリでは web/ にコミット済み）
+# 必要に応じて docs/ に配置します（本リポジトリでは docs/ にコミット済み）
 ```
 
 Run (development)
@@ -93,7 +91,7 @@ Run (development)
 シンプルに静的ファイルサーバを立ててブラウザで開きます。
 
 ```bash
-cd web
+cd docs
 
 # Python
 python -m http.server 8080
@@ -169,5 +167,4 @@ Notes
 -----
 
 - TTL は初期メッセージについては事実上無限とし、宛先到達後も削除せず拡散を継続させています
-- シミュレーション内部の詳細仕様やタスクの背景は `docs/` 以下（特に `docs/ai/TASK2.md`）を参照してください
 
