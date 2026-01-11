@@ -5,6 +5,9 @@ DTNSim Web
 
 ブラウザ上で、ノードグラフ上を移動するエージェントと、その間を伝播していくメッセージ（Carry‑Only / Epidemic ルーティング）を可視化します。
 
+こちらのサイトでシミュレーションできます.
+https://piyo-fluck.github.io/dtnsim-web-wasm/
+
 Features
 --------
 
