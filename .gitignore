@@ -14,7 +14,7 @@ Thumbs.db
 # Editor directories/files
 .vscode/
 .idea/
-
+*.png
 # Temporary files
 *.tmp
 *.swp
