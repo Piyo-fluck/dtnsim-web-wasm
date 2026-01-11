@@ -1,439 +1,594 @@
-// Minimal WASM bindings for dtnsim (stubs only).
-// Implements the frozen ABI declared in wasm/dtnsim_api.h
-// No simulation logic here — just placeholders sufficient to compile.
-
+// --- Includes and Structs ---
 #include "dtnsim_api.h"
-#include <stdlib.h>
-#include <string.h>
-#include <stdint.h>
-#include <math.h>
-#include <float.h>
+#include <vector>
+#include <string>
+#include <cstring>
+#include <cstdlib>
+#include <algorithm>
+#include <unordered_map>
+#include <unordered_set>
 
-#ifdef __cplusplus
+// Internal C++ graph and agent structures (use C ABI types from header)
+struct GraphNode {
+    float x, y, z;
+    std::vector<uint32_t> neighbors; // indices of neighboring graph nodes
+};
+
+struct Agent {
+    uint32_t id;
+    uint32_t current_node; // index into graph nodes
+    uint32_t target_node;  // next node to walk toward
+    float progress;        // 0.0 - 1.0 along edge current_node -> target_node
+    float x, y, z;         // current interpolated position in space
+    std::vector<Message> messages; // messages currently held by this agent
+    bool has_initial = false;      // has this agent ever received the initial message?
+};
+
+// --- DTN Simulation State ---
+namespace {
+    std::vector<GraphNode> g_nodes; // static graph nodes
+    std::vector<Agent> g_agents;    // moving agents walking on the graph
+    std::vector<float> g_node_positions;  // [x0, y0, z0, ...] static node positions for rendering
+    std::vector<float> g_agent_positions; // [x0, y0, z0, ...] dynamic agent positions for rendering
+    std::vector<Message> g_messages; // global message list (one entry per active message)
+    std::vector<uint8_t> g_agent_delivered; // 0/1 per agent: ever received initial message
+    RoutingStats g_stats;
+    uint32_t g_node_count = 0;
+    uint32_t g_agent_count = 0;
+    uint32_t g_seq_counter = 0;
+    // 0: CarryOnly, 1: Epidemic
+    int g_routing_mode = 0;
+
+    // Spatial grid parameters
+    constexpr float COMM_RANGE = 80.0f; // reduced to ~0.4x of previous
+    constexpr float GRID_CELL_SIZE = COMM_RANGE; // cell size == comm range
+    constexpr float AGENT_SPEED = 150.0f; // units per second (spatial speed)
+
+    struct GridCellKey {
+        int gx, gy, gz;
+        bool operator==(const GridCellKey &o) const { return gx==o.gx && gy==o.gy && gz==o.gz; }
+    };
+
+    struct GridCellKeyHash {
+        std::size_t operator()(const GridCellKey &k) const noexcept {
+            // simple integer hash
+            std::size_t h = 1469598103934665603ull;
+            h ^= (std::size_t)k.gx + 0x9e3779b97f4a7c15ull + (h<<6) + (h>>2);
+            h ^= (std::size_t)k.gy + 0x9e3779b97f4a7c15ull + (h<<6) + (h>>2);
+            h ^= (std::size_t)k.gz + 0x9e3779b97f4a7c15ull + (h<<6) + (h>>2);
+            return h;
+        }
+    };
+
+    // Encounter pair within one step
+    struct Encounter {
+        uint32_t a_idx;
+        uint32_t b_idx;
+    };
+
+    // Utility: compute grid key
+    inline GridCellKey cell_for(const Agent &a) {
+        return {
+            static_cast<int>(a.x / GRID_CELL_SIZE),
+            static_cast<int>(a.y / GRID_CELL_SIZE),
+            static_cast<int>(a.z / GRID_CELL_SIZE)
+        };
+    }
+}
+
+// --- API Internals ---
+
 extern "C" {
-#endif
 
-/*
- * Zero-copy / memory ownership / versioning notes
- * ------------------------------------------------
- * - The module allocates contiguous buffers in the WASM heap (malloc/realloc).
- * - Metadata structs (NodePositionsBuffer / NodeBuffer) expose byte offsets
- *   into the WebAssembly linear memory (wasm32). JS should treat these
- *   offsets as byte indices into Module.HEAPU8.buffer.
- * - Zero-copy recommendation (JS): create typed-array views directly over
- *   the wasm ArrayBuffer, e.g.:
- *     const floats = new Float32Array(Module.HEAPU8.buffer, positions_ptr, count * 3);
- * - Always validate bounds before creating a view:
- *     positions_ptr + count * stride <= Module.HEAPU8.byteLength
- * - Memory ownership: WASM owns all buffers. JS must NOT free them and
- *   should avoid writing into them unless explicitly permitted.
- * - Versioning: `NodePositionsBuffer.version` and `NodeBuffer.version`
- *   are incremented when contents change (e.g., after dtnsim_step or
- *   dtnsim_resize). JS clients should use `version` to detect updates and
- *   avoid redundant GPU uploads.
- * - Node layout: the interleaved Node payload follows the `Node` struct in
- *   `dtnsim_api.h`. Writes here use memcpy at fixed offsets (id @ 0, x/y/z
- *   at 4/8/12) in little-endian layout; consumers must read using the same
- *   definition and assume little-endian encoding on wasm32.
- * - When exposing pointers to JS, always convert host pointers to 32-bit
- *   byte offsets via ptr_to_offset().
- */
-
-/* Internal module-state (static, owned by WASM)
- * - Buffers are owned by the module and their byte offsets are exposed
- *   through the public NodePositionsBuffer / NodeBuffer structs.
- */
-static float *g_positions = NULL;    /* size: capacity * 3 floats */
-static uint32_t *g_ids = NULL;       /* size: capacity */
-static uint32_t g_capacity = 0u;     /* allocated capacity (number of nodes) */
-
-/* Minimal internal Agent representation used by this bindings sketch.
- * This is intentionally lightweight and only exists inside the WASM
- * module; it does NOT alter any external Scheduler/Agent classes.
- */
-typedef struct Agent { float x, y, z; float vx, vy, vz; uint32_t id; } Agent;
-static Agent *g_agents = NULL;       /* array length == g_agent_count */
-static uint32_t g_agent_count = 0u;  /* number of active agents (<= g_capacity) */
-
-/* Optional interleaved node buffer (metadata-only exposed via NodeBuffer).
- * g_nodes is a raw byte buffer sized (capacity * g_nodes_stride). */
-static uint8_t *g_nodes = NULL;
-static uint32_t g_nodes_stride = 0u;
-
-/* Public metadata structs (stable addresses returned to callers) */
-static NodePositionsBuffer g_positions_buf = {0};
-static NodeBuffer g_node_buf = {0};
-static WorldBounds g_bounds = {0};
-
-/* Helper: convert host pointer to 32-bit wasm linear memory offset
- * On wasm32 this is a direct cast. If compiling elsewhere, ensure
- * pointers fit in 32 bits for the target (this is intended for emcc).
- */
-static inline uint32_t ptr_to_offset(const void *p) {
-    return p ? (uint32_t)(uintptr_t)p : 0u;
+// --- API required stubs for WASM export ---
+void dtnsim_reset() {
+    g_nodes.clear();
+    g_agents.clear();
+    g_node_positions.clear();
+    g_agent_positions.clear();
+    g_messages.clear();
+    g_agent_delivered.clear();
+    g_node_count = 0;
+    g_agent_count = 0;
+    g_seq_counter = 0;
+    memset(&g_stats, 0, sizeof(g_stats));
+    g_routing_mode = 0;
 }
 
-int dtnsim_init(uint32_t max_nodes) {
-    /* Accept 0 as "use a reasonable default" to simplify host code. */
-    if (max_nodes == 0) max_nodes = 100; /* default agent count */
 
-    /* Allocate positions (3 floats per node) and ids (uint32 per node).
-     * Use malloc to allocate memory inside the WASM heap. The returned
-     * pointers are exposed as byte offsets for zero-copy access from JS.
-     */
-    size_t pos_elems = (size_t)max_nodes * 3u;
-    float *pos = (float*)malloc(pos_elems * sizeof(float));
-    if (!pos) return -2;
-    uint32_t *ids = (uint32_t*)malloc((size_t)max_nodes * sizeof(uint32_t));
-    if (!ids) { free(pos); return -3; }
+// Use the NodePositionsBuffer typedef from dtnsim_api.h
+static NodePositionsBuffer g_node_positions_buf = {0, 0, 0, 12, 1, 0};
+static NodePositionsBuffer g_agent_positions_buf = {0, 0, 0, 12, 1, 0};
 
-    /* Allocate and initialize internal Agent array used by this sketch. */
-    Agent *agents = (Agent*)malloc((size_t)max_nodes * sizeof(Agent));
-    if (!agents) { free(pos); free(ids); return -4; }
+const NodePositionsBuffer* dtnsim_get_node_positions() {
+    // Fill metadata for JS
+    g_node_positions_buf.positions_ptr = (uint32_t)(reinterpret_cast<uintptr_t>(g_node_positions.data()));
+    g_node_positions_buf.ids_ptr = 0; // Not implemented
+    g_node_positions_buf.count = (uint32_t)g_node_count;
+    g_node_positions_buf.positions_stride = 12; // 3 floats (x,y,z) * 4 bytes
+    static uint32_t version = 1;
+    g_node_positions_buf.version = version++;
+    g_node_positions_buf.reserved = 0;
+    return &g_node_positions_buf;
+}
 
-    /* zero-initialize to sensible defaults */
-    memset(pos, 0, pos_elems * sizeof(float));
-    memset(ids, 0, (size_t)max_nodes * sizeof(uint32_t));
-    memset(agents, 0, (size_t)max_nodes * sizeof(Agent));
+const NodePositionsBuffer* dtnsim_get_agent_positions() {
+    g_agent_positions_buf.positions_ptr = (uint32_t)(reinterpret_cast<uintptr_t>(g_agent_positions.data()));
+    g_agent_positions_buf.ids_ptr = 0;
+    g_agent_positions_buf.count = (uint32_t)g_agent_count;
+    g_agent_positions_buf.positions_stride = 12;
+    static uint32_t version = 1;
+    g_agent_positions_buf.version = version++;
+    g_agent_positions_buf.reserved = 0;
+    return &g_agent_positions_buf;
+}
 
-    /* Free any existing buffers (shouldn't normally happen) */
-    if (g_positions) free(g_positions);
-    if (g_ids) free(g_ids);
-    if (g_agents) free(g_agents);
+const RoutingStats* dtnsim_get_stats() {
+    return &g_stats;
+}
 
-    g_positions = pos;
-    g_ids = ids;
-    g_agents = agents;
-    g_capacity = max_nodes;
-    g_agent_count = max_nodes;
+const Message* dtnsim_get_message_list(uint32_t* out_count) {
+    if (out_count) *out_count = (uint32_t)g_messages.size();
+    return g_messages.data();
+}
 
-    /* Initialize agents with simple deterministic layout and small velocity
-     * so that dtnsim_step() will update their positions and JS can observe
-     * changes via the version counter.
-     */
-    const float spacing = 10.0f;
-    const uint32_t cols = (uint32_t)ceilf(sqrtf((float)g_agent_count));
+void dtnsim_init(uint32_t agent_count, const char* routing_name) {
+    dtnsim_reset();
+    // For now, use the same count for graph nodes and agents, but keep
+    // them conceptually separate.
+    g_node_count = agent_count;
+    g_agent_count = agent_count;
+
+    g_nodes.clear();
+    g_nodes.reserve(g_node_count);
+    g_node_positions.clear();
+    g_node_positions.reserve(g_node_count * 3);
+
+    // Place graph nodes randomly in a 3D box (scaled up to ~1500x1500x1500 to lengthen edges)
+    for (uint32_t i = 0; i < g_node_count; ++i) {
+        GraphNode n;
+        n.x = static_cast<float>(rand()) / static_cast<float>(RAND_MAX) * 1500.0f;
+        n.y = static_cast<float>(rand()) / static_cast<float>(RAND_MAX) * 1500.0f;
+        n.z = static_cast<float>(rand()) / static_cast<float>(RAND_MAX) * 1500.0f;
+        g_nodes.push_back(n);
+        g_node_positions.push_back(n.x);
+        g_node_positions.push_back(n.y);
+        g_node_positions.push_back(n.z);
+    }
+
+    // Build explicit adjacency (k-nearest neighbors) on the static graph
+    if (g_node_count > 1) {
+        const uint32_t K = 3; // neighbors per node
+        for (uint32_t i = 0; i < g_node_count; ++i) {
+            struct DistIdx { float d2; uint32_t j; };
+            std::vector<DistIdx> dists;
+            dists.reserve(g_node_count - 1);
+            const GraphNode &ni = g_nodes[i];
+            for (uint32_t j = 0; j < g_node_count; ++j) {
+                if (j == i) continue;
+                const GraphNode &nj = g_nodes[j];
+                float dx = ni.x - nj.x;
+                float dy = ni.y - nj.y;
+                float dz = ni.z - nj.z;
+                float d2 = dx*dx + dy*dy + dz*dz;
+                dists.push_back({d2, j});
+            }
+            std::sort(dists.begin(), dists.end(), [](const DistIdx &a, const DistIdx &b){ return a.d2 < b.d2; });
+            const uint32_t limit = std::min<uint32_t>(K, (uint32_t)dists.size());
+            for (uint32_t k = 0; k < limit; ++k) {
+                uint32_t j = dists[k].j;
+                // add undirected edge i <-> j (avoid obvious duplicates)
+                if (std::find(g_nodes[i].neighbors.begin(), g_nodes[i].neighbors.end(), j) == g_nodes[i].neighbors.end()) {
+                    g_nodes[i].neighbors.push_back(j);
+                }
+                if (std::find(g_nodes[j].neighbors.begin(), g_nodes[j].neighbors.end(), i) == g_nodes[j].neighbors.end()) {
+                    g_nodes[j].neighbors.push_back(i);
+                }
+            }
+        }
+    }
+
+    // Initialize agents on random graph nodes
+    g_agents.clear();
+    g_agents.reserve(g_agent_count);
+    g_agent_positions.clear();
+    g_agent_positions.reserve(g_agent_count * 3);
+    g_agent_delivered.clear();
+    g_agent_delivered.resize(g_agent_count, 0);
+
     for (uint32_t i = 0; i < g_agent_count; ++i) {
-        uint32_t row = i / cols;
-        uint32_t col = i % cols;
-        g_agents[i].x = (float)col * spacing;
-        g_agents[i].y = (float)row * spacing;
-        g_agents[i].z = 0.0f;
-        // Random walk: random direction and speed
-        float theta = ((float)rand() / (float)RAND_MAX) * 2.0f * (float)M_PI;
-        float v = 1.0f; // constant speed, can be randomized if needed
-        g_agents[i].vx = v * cosf(theta);
-        g_agents[i].vy = v * sinf(theta);
-        g_agents[i].vz = 0.0f;
-        g_agents[i].id = i + 1;
-
-        /* Also populate the contiguous positions/ids buffers for initial state */
-        pos[i * 3 + 0] = g_agents[i].x;
-        pos[i * 3 + 1] = g_agents[i].y;
-        pos[i * 3 + 2] = g_agents[i].z;
-        ids[i] = g_agents[i].id;
+        Agent a;
+        a.id = i + 1;
+        a.current_node = (g_node_count > 0) ? (rand() % g_node_count) : 0;
+        const GraphNode &start = g_nodes[a.current_node];
+        if (!g_nodes[a.current_node].neighbors.empty()) {
+            a.target_node = g_nodes[a.current_node].neighbors[rand() % g_nodes[a.current_node].neighbors.size()];
+        } else {
+            a.target_node = a.current_node;
+        }
+        a.progress = 0.0f;
+        a.x = start.x;
+        a.y = start.y;
+        a.z = start.z;
+        a.has_initial = false;
+        g_agents.push_back(a);
+        g_agent_positions.push_back(a.x);
+        g_agent_positions.push_back(a.y);
+        g_agent_positions.push_back(a.z);
     }
-
-    g_positions_buf.positions_ptr = ptr_to_offset(g_positions);
-    g_positions_buf.ids_ptr = ptr_to_offset(g_ids);
-    g_positions_buf.count = g_agent_count;
-    g_positions_buf.positions_stride = DTNSIM_POSITIONS_STRIDE_BYTES;
-    g_positions_buf.version = 1u; /* initial version */
-    g_positions_buf.reserved = 0u;
-
-    /* NodeBuffer not present by default (secondary) */
-    g_node_buf.nodes_ptr = 0u;
-    g_node_buf.count = 0u;
-    g_node_buf.stride = 0u;
-    g_node_buf.version = 0u;
-
-    /* World bounds default (simple bounding box of initial layout) */
-    g_bounds.minx = 0.0f;
-    g_bounds.miny = 0.0f;
-    g_bounds.minz = 0.0f;
-    g_bounds.maxx = (cols + 1) * spacing;
-    g_bounds.maxy = (cols + 1) * spacing;
-    g_bounds.maxz = 0.0f;
-    g_bounds.version = 1u;
-    g_bounds.reserved = 0u;
-
-    return 0;
+    // Select routing strategy by name
+    // Only "carryonly" and "epidemic" supported for now
+    // Store as int for fast check in step (0: CarryOnly, 1: Epidemic)
+    if (routing_name && strcmp(routing_name, "epidemic") == 0) {
+        g_routing_mode = 1;
+    } else {
+        g_routing_mode = 0;
+    }
+    // Inject a single message (TTL effectively infinite; ttl field is unused)
+    if (agent_count >= 2) {
+        uint32_t src = rand() % agent_count;
+        uint32_t dst = (src + 1 + rand() % (agent_count - 1)) % agent_count;
+        Message m;
+        m.src = g_agents[src].id;
+        m.dst = g_agents[dst].id;
+        m.seq = ++g_seq_counter;
+        m.ttl = 0; // 0 means "no expiry" in current logic
+        m.hops = 0;
+        g_agents[src].messages.push_back(m);
+        g_messages.push_back(m);
+        // Initial carrier has already "received" the initial message
+        g_agents[src].has_initial = true;
+        if (src < g_agent_delivered.size()) {
+            g_agent_delivered[src] = 1;
+        }
+    }
+    // Reset stats
+    memset(&g_stats, 0, sizeof(g_stats));
+    // delivered now means: number of distinct agents that have ever received the initial message
+    if (agent_count >= 2) {
+        g_stats.delivered = 1; // initial carrier
+    }
 }
 
-/* Enable an optional interleaved node buffer. stride is bytes per node element
- * (typically sizeof(Node)). Returns 0 on success, non-zero on error. */
-int dtnsim_enable_node_buffer(uint32_t stride) {
-    if (stride == 0u) return -1; /* invalid stride */
-
-    if (g_nodes) {
-        /* already enabled; check stride compatibility */
-        if (g_nodes_stride == stride) return 0;
-        /* incompatible stride: require disabling first */
-        return -2;
-    }
-
-    if (g_capacity == 0u) {
-        /* nothing to allocate yet; just set stride and mark present with 0 count */
-        g_nodes_stride = stride;
-        g_node_buf.nodes_ptr = 0u;
-        g_node_buf.count = 0u;
-        g_node_buf.stride = g_nodes_stride;
-        ++g_node_buf.version;
-        return 0;
-    }
-
-    size_t bytes = (size_t)g_capacity * (size_t)stride;
-    uint8_t *nodes = (uint8_t*)malloc(bytes);
-    if (!nodes) return -3; /* allocation failed */
-    memset(nodes, 0, bytes);
-
-    g_nodes = nodes;
-    g_nodes_stride = stride;
-
-    /* Expose nodes_ptr as a 32-bit byte offset into wasm linear memory
-     * (use ptr_to_offset so the pointer is safe for wasm32 consumers).
-     * JS should use this offset to create typed views, e.g.:
-     *   new Uint8Array(Module.HEAPU8.buffer, nodes_ptr, count * stride);
-     */
-    g_node_buf.nodes_ptr = ptr_to_offset(g_nodes);
-    g_node_buf.count = g_capacity;
-    g_node_buf.stride = g_nodes_stride;
-    ++g_node_buf.version;
-
-    return 0;
-}
-
-/* Disable the optional interleaved node buffer (free if present). */
-int dtnsim_disable_node_buffer(void) {
-    if (!g_nodes && g_nodes_stride == 0u) return 0; /* already disabled */
-
-    if (g_nodes) { free(g_nodes); g_nodes = NULL; }
-    g_nodes_stride = 0u;
-
-    g_node_buf.nodes_ptr = 0u;
-    g_node_buf.count = 0u;
-    g_node_buf.stride = 0u;
-    ++g_node_buf.version;
-
-    return 0;
+// Expose per-agent delivered flags (0 = never received initial message, 1 = has received)
+const uint8_t* dtnsim_get_agent_delivered_flags() {
+    if (g_agent_delivered.empty()) return nullptr;
+    return g_agent_delivered.data();
 }
 
 void dtnsim_step(double dt) {
-    /* Advance internal minimal agents and copy their positions into
-     * the contiguous positions buffer so JS can perform zero-copy reads.
-     * Memory ownership: WASM owns the buffers; JS must not free them.
-     * Versioning: increment g_positions_buf.version when we update
-     * the buffer so JS can detect changes and skip unnecessary GPU uploads.
-     */
-    if (g_agent_count == 0) return;
+    const uint32_t agent_count = g_agent_count;
+    if (agent_count == 0) return;
 
-    /* Update agent positions with a simple velocity model and copy
-     * into the contiguous positions & ids buffers (3 floats per node).
-     */
-    float minx = FLT_MAX, miny = FLT_MAX, maxx = -FLT_MAX, maxy = -FLT_MAX;
-    for (uint32_t i = 0; i < g_agent_count; ++i) {
-        Agent *a = &g_agents[i];
-        // Random walk: update direction and speed each step
-        float theta = ((float)rand() / (float)RAND_MAX) * 2.0f * (float)M_PI;
-        float v = 1.0f; // constant speed, can be randomized if needed
-        a->vx = v * cosf(theta);
-        a->vy = v * sinf(theta);
-        // Euler integration
-        a->x += a->vx * (float)dt;
-        a->y += a->vy * (float)dt;
-        a->z += a->vz * (float)dt;
-        // wrap or clamp to keep values reasonable for demo
-        if (a->x < -1000.0f) a->x = 1000.0f; else if (a->x > 1000.0f) a->x = -1000.0f;
-        if (a->y < -1000.0f) a->y = 1000.0f; else if (a->y > 1000.0f) a->y = -1000.0f;
+    const float fdt = static_cast<float>(dt);
 
-        /* copy to contiguous positions buffer */
-        g_positions[i * 3 + 0] = a->x;
-        g_positions[i * 3 + 1] = a->y;
-        g_positions[i * 3 + 2] = a->z;
-        g_ids[i] = a->id;
+    // 1. Agent mobility update (random walk on graph edges)
+    for (uint32_t i = 0; i < agent_count; ++i) {
+        Agent &a = g_agents[i];
+        if (g_node_count == 0) continue;
+        const GraphNode &src = g_nodes[a.current_node];
+        const GraphNode &dst = g_nodes[a.target_node];
+        float dx = dst.x - src.x;
+        float dy = dst.y - src.y;
+        float dz = dst.z - src.z;
+        float len = std::sqrt(dx*dx + dy*dy + dz*dz);
 
-        /* optional: update interleaved NodeBuffer if enabled
-         * - We write individual fields using memcpy into the raw node record
-         *   to ensure the on-disk (in-memory) layout matches `Node` in the
-         *   public header (`dtnsim_api.h`). Offsets used here are explicit
-         *   and assume little-endian wasm32 memory layout: id @ 0, x @ 4,
-         *   y @ 8, z @ 12. If additional node fields are required, extend
-         *   the Node struct in the header and update writes accordingly.
-         * - Using memcpy keeps the write behavior portable and avoids
-         *   potential alignment/packing surprises in different compilers.
-         */
-        if (g_nodes && g_nodes_stride >= sizeof(Node)) {
-            uint8_t *dst = g_nodes + (size_t)i * (size_t)g_nodes_stride;
-            /* write Node { id, x, y, z, state=0 } in little-endian layout */
-            memcpy(dst + 0, &a->id, sizeof(uint32_t));
-            memcpy(dst + 4, &a->x, sizeof(float));
-            memcpy(dst + 8, &a->y, sizeof(float));
-            memcpy(dst + 12, &a->z, sizeof(float));
+        if (len < 1e-3f) {
+            a.progress = 1.0f;
+        } else {
+            float delta = (AGENT_SPEED * fdt) / len;
+            a.progress += delta;
+            if (a.progress > 1.0f) a.progress = 1.0f;
         }
 
-        /* bounds tracking */
-        if (a->x < minx) minx = a->x; if (a->y < miny) miny = a->y;
-        if (a->x > maxx) maxx = a->x; if (a->y > maxy) maxy = a->y;
-    }
+        float t = a.progress;
+        a.x = src.x + dx * t;
+        a.y = src.y + dy * t;
+        a.z = src.z + dz * t;
 
-    /* publish metadata updates */
-    g_positions_buf.count = g_agent_count;
-    ++g_positions_buf.version; /* signal update */
+        // Write back to agent position buffer
+        const size_t base = static_cast<size_t>(i) * 3;
+        if (base + 2 < g_agent_positions.size()) {
+            g_agent_positions[base + 0] = a.x;
+            g_agent_positions[base + 1] = a.y;
+            g_agent_positions[base + 2] = a.z;
+        }
 
-    if (g_nodes) {
-        g_node_buf.count = g_agent_count;
-        ++g_node_buf.version;
-    }
-
-    /* update bounds
-     * Note: keep z extents as zero for this simple sketch
-     */
-    g_bounds.minx = (minx == FLT_MAX) ? 0.0f : minx;
-    g_bounds.miny = (miny == FLT_MAX) ? 0.0f : miny;
-    g_bounds.minz = 0.0f;
-    g_bounds.maxx = (maxx == -FLT_MAX) ? 0.0f : maxx;
-    g_bounds.maxy = (maxy == -FLT_MAX) ? 0.0f : maxy;
-    g_bounds.maxz = 0.0f;
-    ++g_bounds.version;
-}
-
-const NodePositionsBuffer* dtnsim_get_node_positions(void) {
-    return &g_positions_buf;
-}
-
-const NodeBuffer* dtnsim_get_node_buffer(void) {
-    return &g_node_buf;
-}
-
-const WorldBounds* dtnsim_get_bounds(void) {
-    return &g_bounds;
-}
-
-int dtnsim_resize(uint32_t new_max_nodes) {
-    if (new_max_nodes == g_capacity) return 0; /* unchanged */
-
-    if (new_max_nodes == 0u) {
-        /* Free and clear */
-        if (g_positions) { free(g_positions); g_positions = NULL; }
-        if (g_ids) { free(g_ids); g_ids = NULL; }
-        /* If nodes buffer present, free it too */
-        if (g_nodes) { free(g_nodes); g_nodes = NULL; }
-        if (g_agents) { free(g_agents); g_agents = NULL; }
-        g_nodes_stride = 0u;
-        g_capacity = 0u;
-        g_agent_count = 0u;
-        g_positions_buf.positions_ptr = 0u;
-        g_positions_buf.ids_ptr = 0u;
-        g_positions_buf.count = 0u;
-        ++g_positions_buf.version;
-
-        g_node_buf.nodes_ptr = 0u;
-        g_node_buf.count = 0u;
-        g_node_buf.stride = 0u;
-        ++g_node_buf.version;
-
-        return 0;
-    }
-
-    /* Keep old capacity for zeroing logic in case we expand. */
-    uint32_t old_capacity = g_capacity;
-
-    /* Reallocate to new size */
-    size_t new_pos_elems = (size_t)new_max_nodes * 3u;
-    float *new_pos = (float*)realloc(g_positions, new_pos_elems * sizeof(float));
-    if (!new_pos) return -1; /* realloc failed */
-
-    uint32_t *new_ids = (uint32_t*)realloc(g_ids, (size_t)new_max_nodes * sizeof(uint32_t));
-    if (!new_ids) {
-        /* roll back positions if ids realloc failed */
-        /* Note: gcc realloc semantics leave original pointer intact on failure */
-        return -2;
-    }
-
-    /* Reallocate agents array to match capacity */
-    Agent *new_agents = (Agent*)realloc(g_agents, (size_t)new_max_nodes * sizeof(Agent));
-    if (!new_agents) {
-        /* roll back if agent realloc failed */
-        return -3;
-    }
-
-    /* If expanded, zero the new regions */
-    if (new_max_nodes > old_capacity) {
-        size_t old_pos_elems = (size_t)old_capacity * 3u;
-        size_t old_ids_elems = (size_t)old_capacity;
-        memset(new_pos + old_pos_elems, 0, (new_pos_elems - old_pos_elems) * sizeof(float));
-        memset(new_ids + old_ids_elems, 0, (new_max_nodes - old_ids_elems) * sizeof(uint32_t));
-        memset(new_agents + old_capacity, 0, (new_max_nodes - old_capacity) * sizeof(Agent));
-
-        /* initialize new agents with deterministic defaults */
-        const float spacing = 10.0f;
-        const uint32_t cols = (uint32_t)ceilf(sqrtf((float)new_max_nodes));
-        for (uint32_t i = old_capacity; i < new_max_nodes; ++i) {
-            uint32_t row = i / cols;
-            uint32_t col = i % cols;
-            new_agents[i].x = (float)col * spacing;
-            new_agents[i].y = (float)row * spacing;
-            new_agents[i].z = 0.0f;
-            new_agents[i].vx = 0.5f + (float)(i % 5) * 0.1f;
-            new_agents[i].vy = 0.2f + (float)(i % 7) * 0.05f;
-            new_agents[i].vz = 0.0f;
-            new_agents[i].id = i + 1;
+        if (a.progress >= 1.0f) {
+            a.current_node = a.target_node;
+            const GraphNode &cur = g_nodes[a.current_node];
+            if (!cur.neighbors.empty()) {
+                a.target_node = cur.neighbors[rand() % cur.neighbors.size()];
+                a.progress = 0.0f;
+            }
         }
     }
 
-    g_positions = new_pos;
-    g_ids = new_ids;
-    g_agents = new_agents;
-    g_capacity = new_max_nodes;
-    g_agent_count = new_max_nodes; /* keep agents count == capacity in this sketch */
-
-    g_positions_buf.positions_ptr = ptr_to_offset(g_positions);
-    g_positions_buf.ids_ptr = ptr_to_offset(g_ids);
-    g_positions_buf.count = g_agent_count;
-    ++g_positions_buf.version;
-
-    /* If an interleaved node buffer is enabled, resize/realloc it too. */
-    if (g_nodes) {
-        size_t bytes = (size_t)g_capacity * (size_t)g_nodes_stride;
-        uint8_t *new_nodes = (uint8_t*)realloc(g_nodes, bytes);
-        if (!new_nodes) {
-            /* keep original buffers intact on failure */
-            return -4;
-        }
-        /* If expanded, zero the new region */
-        if (new_max_nodes > old_capacity) {
-            size_t old_bytes = (size_t)old_capacity * (size_t)g_nodes_stride;
-            memset(new_nodes + old_bytes, 0, bytes - old_bytes);
-        }
-        g_nodes = new_nodes;
-        g_node_buf.nodes_ptr = ptr_to_offset(g_nodes);
-        g_node_buf.count = g_capacity;
-        ++g_node_buf.version;
+    // 2. Neighbor / encounter detection using a 3D uniform grid (on agent positions)
+    std::unordered_map<GridCellKey, std::vector<uint32_t>, GridCellKeyHash> grid;
+    grid.reserve(agent_count * 2);
+    for (uint32_t i = 0; i < agent_count; ++i) {
+        const Agent &a = g_agents[i];
+        GridCellKey key = cell_for(a);
+        grid[key].push_back(i);
     }
 
-    return 0;
-}
+    std::vector<Encounter> encounters;
+    encounters.reserve(agent_count * 4);
 
-void dtnsim_shutdown(void) {
-    if (g_positions) { free(g_positions); g_positions = NULL; }
-    if (g_ids) { free(g_ids); g_ids = NULL; }
-    if (g_nodes) { free(g_nodes); g_nodes = NULL; }
-    if (g_agents) { free(g_agents); g_agents = NULL; }
-    g_nodes_stride = 0u;
-    g_capacity = 0u;
-    g_agent_count = 0u;
+    const float comm_range2 = COMM_RANGE * COMM_RANGE;
 
-    g_positions_buf.positions_ptr = 0u;
-    g_positions_buf.ids_ptr = 0u;
-    g_positions_buf.count = 0u;
-    ++g_positions_buf.version;
+    for (uint32_t i = 0; i < agent_count; ++i) {
+        const Agent &ai = g_agents[i];
+        GridCellKey ci = cell_for(ai);
+        for (int dx = -1; dx <= 1; ++dx) {
+            for (int dy = -1; dy <= 1; ++dy) {
+                for (int dz = -1; dz <= 1; ++dz) {
+                    GridCellKey ck{ci.gx + dx, ci.gy + dy, ci.gz + dz};
+                    auto it = grid.find(ck);
+                    if (it == grid.end()) continue;
+                    const std::vector<uint32_t> &indices = it->second;
+                    for (uint32_t idx : indices) {
+                        if (idx <= i) continue; // ensure each pair at most once per step
+                        const Agent &aj = g_agents[idx];
+                        const float dxp = ai.x - aj.x;
+                        const float dyp = ai.y - aj.y;
+                        const float dzp = ai.z - aj.z;
+                        const float dist2 = dxp*dxp + dyp*dyp + dzp*dzp;
+                        if (dist2 <= comm_range2) {
+                            encounters.push_back({ i, idx });
+                        }
+                    }
+                }
+            }
+        }
+    }
 
-    g_node_buf.nodes_ptr = 0u;
-    g_node_buf.count = 0u;
-    g_node_buf.stride = 0u;
-    ++g_node_buf.version;
+    // 3. Routing and message forwarding
+    // We must obey:
+    //  - each message may be transferred at most once per encounter
+    //  - a newly received message cannot be forwarded again within the same step
 
-    g_bounds.version++;
+    // Track which (agent, message) pairs received a message in this step
+    std::unordered_set<uint64_t> received_this_step;
+    received_this_step.reserve(1024);
+
+    auto make_key = [](uint32_t agent_idx, uint32_t msg_idx) -> uint64_t {
+        return (static_cast<uint64_t>(agent_idx) << 32) | static_cast<uint64_t>(msg_idx);
+    };
+
+    // Helper: find message index in global g_messages by (src,dst,seq)
+    auto find_global_msg_index = [](const Message &m) -> int {
+        for (size_t i = 0; i < g_messages.size(); ++i) {
+            const Message &gm = g_messages[i];
+            if (gm.src == m.src && gm.dst == m.dst && gm.seq == m.seq) return static_cast<int>(i);
+        }
+        return -1;
+    };
+
+    // Helper: mark that an agent has received the initial message (seq == 1) at least once
+    auto mark_initial_received = [&](uint32_t agent_idx) {
+        if (agent_idx >= g_agents.size()) return;
+        Agent &ag = g_agents[agent_idx];
+        if (!ag.has_initial) {
+            ag.has_initial = true;
+            if (agent_idx < g_agent_delivered.size()) {
+                g_agent_delivered[agent_idx] = 1;
+            }
+            g_stats.delivered++; // count distinct agents that have ever held the initial message
+        }
+    };
+
+    for (const Encounter &enc : encounters) {
+        Agent &a = g_agents[enc.a_idx];
+        Agent &b = g_agents[enc.b_idx];
+
+        if (g_routing_mode == 0) {
+            // CarryOnly
+            // An agent forwards a message only if it encounters the destination directly.
+            // Forwarding to intermediates is not allowed.
+            // Each successful delivery: tx++, rx++, delivered++, message removed from system.
+
+            // From a -> b
+            for (const Message &m : a.messages) {
+                if (b.id != m.dst) continue;
+                // destination reached
+                // Check duplicates: if b already holds m, count duplicate and skip
+                bool b_has = false;
+                for (const Message &bm : b.messages) {
+                    if (bm.src==m.src && bm.dst==m.dst && bm.seq==m.seq) { b_has = true; break; }
+                }
+                if (b_has) {
+                    continue;
+                }
+                g_stats.tx++;
+                g_stats.rx++;
+                // Conceptual delivery: destination receives the message once
+                if (m.seq == 1) {
+                    mark_initial_received(enc.b_idx);
+                }
+
+                // Remove from all agents and global list after loop (delivery/removal handled below)
+            }
+
+            // From b -> a (symmetric case)
+            for (const Message &m : b.messages) {
+                if (a.id != m.dst) continue;
+                bool a_has = false;
+                for (const Message &am : a.messages) {
+                    if (am.src==m.src && am.dst==m.dst && am.seq==m.seq) { a_has = true; break; }
+                }
+                if (a_has) {
+                    continue;
+                }
+                g_stats.tx++;
+                g_stats.rx++;
+                if (m.seq == 1) {
+                    mark_initial_received(enc.a_idx);
+                }
+            }
+        } else {
+            // Epidemic routing
+            // During an encounter:
+            //  - each side forwards all messages it holds and the neighbor does not hold
+            //  - each message at most once per encounter
+            //  - messages received in this step cannot be forwarded again in this step
+
+            // Build fast membership sets for b and a for this encounter
+            auto has_msg = [](const std::vector<Message> &vec, const Message &m) {
+                for (const Message &x : vec) {
+                    if (x.src==m.src && x.dst==m.dst && x.seq==m.seq) return true;
+                }
+                return false;
+            };
+
+            // a -> b
+            for (size_t mi = 0; mi < a.messages.size(); ++mi) {
+                const Message &m = a.messages[mi];
+                int gidx = find_global_msg_index(m);
+                if (gidx < 0) continue;
+                uint64_t key = make_key(enc.a_idx, static_cast<uint32_t>(gidx));
+                if (received_this_step.find(key) != received_this_step.end()) continue; // newly received earlier this step
+
+                if (has_msg(b.messages, m)) {
+                    continue;
+                }
+
+                // Transfer
+                b.messages.push_back(m);
+                g_stats.tx++;
+                g_stats.rx++;
+
+                // Track spread of the initial message (seq == 1)
+                if (m.seq == 1) {
+                    mark_initial_received(enc.b_idx);
+                }
+
+                // Once per encounter: don't transfer same message again in this encounter from a->b
+                // (loop naturally ensures that)
+
+                // mark as received this step so b cannot forward it again this step
+                received_this_step.insert(make_key(enc.b_idx, static_cast<uint32_t>(gidx)));
+            }
+
+            // b -> a
+            for (size_t mi = 0; mi < b.messages.size(); ++mi) {
+                const Message &m = b.messages[mi];
+                int gidx = find_global_msg_index(m);
+                if (gidx < 0) continue;
+                uint64_t key = make_key(enc.b_idx, static_cast<uint32_t>(gidx));
+                if (received_this_step.find(key) != received_this_step.end()) continue;
+
+                if (has_msg(a.messages, m)) {
+                    continue;
+                }
+
+                a.messages.push_back(m);
+                g_stats.tx++;
+                g_stats.rx++;
+                if (m.seq == 1) {
+                    mark_initial_received(enc.a_idx);
+                }
+                received_this_step.insert(make_key(enc.a_idx, static_cast<uint32_t>(gidx)));
+            }
+        }
+    }
+
+    // 4. TTL handling (disabled for infinite TTL) & 5. Delivery check and message removal
+    // We maintain g_messages as the set of all active (non-delivered) messages.
+    // Agents hold references (by value). With infinite TTL we:
+    //  - do NOT decrement ttl or drop by expiry
+    //  - only remove messages that reached destination from all agents and global list
+
+    // First, identify which global messages are delivered or expired
+    std::vector<bool> remove_global(g_messages.size(), false);
+
+    for (size_t gi = 0; gi < g_messages.size(); ++gi) {
+        Message &gm = g_messages[gi];
+
+        // Destination handling: if any agent holding gm has id == dst, treat as delivered
+        bool delivered = false;
+        for (const Agent &a : g_agents) {
+            if (a.id != gm.dst) continue;
+            for (const Message &m : a.messages) {
+                if (m.src==gm.src && m.dst==gm.dst && m.seq==gm.seq) {
+                    delivered = true;
+                    break;
+                }
+            }
+            if (delivered) break;
+        }
+
+        if (delivered) {
+            remove_global[gi] = true;
+            // stats.delivered already incremented when destination first received the message
+        }
+    }
+
+    // Remove from global list
+    std::vector<Message> new_global;
+    new_global.reserve(g_messages.size());
+    for (size_t gi = 0; gi < g_messages.size(); ++gi) {
+        if (!remove_global[gi]) new_global.push_back(g_messages[gi]);
+    }
+    g_messages.swap(new_global);
+
+    // Remove from agents' buffers
+    for (Agent &a : g_agents) {
+        std::vector<Message> kept;
+        kept.reserve(a.messages.size());
+        for (const Message &m : a.messages) {
+            bool alive = false;
+            for (const Message &gm : g_messages) {
+                if (gm.src==m.src && gm.dst==m.dst && gm.seq==m.seq) {
+                    alive = true;
+                    break;
+                }
+            }
+            if (alive) kept.push_back(m);
+        }
+        a.messages.swap(kept);
+    }
+
+    // 6. Statistics update
+    // All stat counters (tx, rx, duplicates, delivered) are maintained inline above.
+
+#ifndef NDEBUG
+    // Lightweight consistency check (debug-only):
+    //  - Every global message must be held by at least one agent
+    //  - Every per-agent message must exist in g_messages
+    for (const Message &gm : g_messages) {
+        bool found = false;
+        for (const Agent &a : g_agents) {
+            for (const Message &m : a.messages) {
+                if (m.src==gm.src && m.dst==gm.dst && m.seq==gm.seq) {
+                    found = true;
+                    break;
+                }
+            }
+            if (found) break;
+        }
+        if (!found) {
+            // In debug builds, abort early if invariants are broken.
+            abort();
+        }
+    }
+
+    for (const Agent &a : g_agents) {
+        for (const Message &m : a.messages) {
+            bool found = false;
+            for (const Message &gm : g_messages) {
+                if (gm.src==m.src && gm.dst==m.dst && gm.seq==m.seq) {
+                    found = true;
+                    break;
+                }
+            }
+            if (!found) {
+                abort();
+            }
+        }
+    }
+#endif
 }
 
 #ifdef __cplusplus

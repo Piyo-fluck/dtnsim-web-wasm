@@ -3,18 +3,109 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>dtnsim WASM demo</title>
-  <style>body{margin:0;font-family:system-ui,Segoe UI,Roboto,Helvetica,Arial} #start-wasm{position:fixed;left:8px;bottom:8px;z-index:1000;padding:8px 12px} canvas{position:fixed;right:8px;bottom:8px;border:1px solid #444;z-index:999}</style>
+  <title>DTNSim — WASM Demo</title>
+  <style>
+    :root{
+      --bg:#0b0f17; --panel:#121826; --panel-2:#0e1422; --text:#e6eef8; --muted:#94a3b8;
+      --accent:#6ee7b7; --accent-2:#22d3ee; --border:#1f2a44; --shadow:#00000060;
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{margin:0;font-family:system-ui, Segoe UI, Roboto, Helvetica, Arial; background:linear-gradient(180deg, #0b0f17 0%, #0b1220 60%, #0a0f18 100%); color:var(--text);}
+    canvas{position:fixed; inset:0; width:100%; height:100%; display:block;}
+    .panel{position:fixed; top:16px; left:16px; z-index:10; background:linear-gradient(180deg, var(--panel) 0%, var(--panel-2) 100%); border:1px solid var(--border); border-radius:12px; box-shadow:0 10px 30px var(--shadow); padding:12px 14px; min-width:340px}
+    .row{display:grid; grid-template-columns: 1fr 1fr; gap:8px; align-items:center;}
+    .row-3{display:grid; grid-template-columns: 1fr 1fr 1fr; gap:8px; align-items:center;}
+    .row > *:first-child{grid-column:1 / -1}
+    h1{font-size:16px; margin:0 0 8px 0; display:flex; align-items:center; gap:8px; font-weight:600}
+    .badge{font-size:12px; padding:2px 8px; border-radius:999px; border:1px solid var(--border); color:var(--muted)}
+    label{font-size:12px; color:var(--muted)}
+    select, input[type="number"], input[type="range"]{width:100%; background:#0c1322; color:var(--text); border:1px solid var(--border); border-radius:8px; padding:8px; font-size:13px}
+    .toggle{display:flex; align-items:center; gap:8px; font-size:13px}
+    .toggle input{accent-color:var(--accent)}
+    .toolbar{display:flex; gap:8px; margin-top:8px; flex-wrap:wrap}
+    button{appearance:none; border:1px solid var(--border); background:#0f172a; color:var(--text); padding:8px 10px; border-radius:10px; font-weight:600; font-size:13px; cursor:pointer}
+    button.primary{background:linear-gradient(180deg, #0f2933 0%, #122a22 100%); border-color:#1e3a5f; color:#d1fae5}
+    button.ghost{background:transparent}
+    button:disabled{opacity:.6; cursor:not-allowed}
+    .stats{margin-top:6px; font-size:12px; color:var(--muted)}
+    .help{position:fixed; left:16px; bottom:16px; z-index:10; background:linear-gradient(180deg, var(--panel) 0%, var(--panel-2) 100%); border:1px solid var(--border); border-radius:12px; box-shadow:0 10px 30px var(--shadow); padding:10px 12px; max-width:420px}
+    .help h2{margin:0 0 6px 0; font-size:13px; color:var(--muted); font-weight:600}
+    .help ul{margin:0; padding-left:16px; font-size:12px; color:#cbd5e1}
+    .sep{height:1px; background:var(--border); margin:8px 0}
+    .agent-log{position:fixed; top:16px; right:16px; z-index:9; background:rgba(6, 28, 30, 0.92); border:1px solid #064e3b; border-radius:12px; box-shadow:0 10px 30px var(--shadow); padding:10px 12px; max-width:260px; max-height:calc(100% - 32px); overflow-y:auto; font-size:12px; color:#bbf7d0; line-height:1.4}
+    .agent-log h2{margin:0 0 6px 0; font-size:13px; color:#6ee7b7; font-weight:600}
+    .agent-log pre{margin:0; font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; white-space:pre-wrap}
+  </style>
 </head>
 <body>
-  <button id="start-wasm">Start WASM demo</button>
-  <div id="dtn-status" style="position:fixed;left:8px;bottom:48px;z-index:1000;color:#fff;background:#0008;padding:4px 6px;font-size:12px">status: idle</div>
-  <canvas id="dtn-canvas" width="800" height="600" aria-label="dtnsim canvas"></canvas>
+  <div class="panel">
+    <h1>DTNSim <span id="sim-status" class="badge">idle</span></h1>
+    <div class="row">
+      <label for="routing-select">Routing</label>
+      <select id="routing-select">
+        <option value="carryonly">Carry Only</option>
+        <option value="epidemic">Epidemic</option>
+      </select>
+      <label for="node-count">Nodes</label>
+      <input id="node-count" type="number" min="10" max="1000" step="10" value="50" />
+      <label for="speed">Speed: <span id="speed-label">1.0x</span></label>
+      <input id="speed" type="range" min="0.1" max="4" step="0.1" value="1" />
+    </div>
+    <div class="row-3" style="margin-top:8px">
+      <label class="toggle"><input id="toggle-edges" type="checkbox" checked /> Show edges</label>
+      <label class="toggle"><input id="toggle-autorot" type="checkbox" /> Auto-rotate</label>
+      <label class="toggle"><input id="toggle-stats" type="checkbox" checked /> Show stats</label>
+    </div>
+    <div class="toolbar">
+      <button id="start-sim" class="primary">Start</button>
+      <button id="pause-sim">Pause</button>
+      <button id="reset-sim" class="ghost">Reset</button>
+      <button id="fit-view" class="ghost">Fit View</button>
+      <button id="help-btn" class="ghost">Help</button>
+    </div>
+    <div id="dtn-stats" class="stats">
+      Delivered agents (ever): <span id="stat-delivered">0</span> • TX: <span id="stat-tx">0</span> • RX: <span id="stat-rx">0</span> • Duplicates: <span id="stat-dup">0</span><br/>
+      Full spread time: <span id="stat-time">-</span> s
+    </div>
+  </div>
+  <div class="help" id="help" style="display:none">
+    <h2>View Controls</h2>
+    <ul>
+      <li>Left-drag: rotate camera</li>
+      <li>Shift-drag or Right-drag: pan</li>
+      <li>Mouse wheel: zoom</li>
+      <li>F: fit view • R: reset view • Space: pause/resume • A: toggle auto-rotate</li>
+    </ul>
+    <div class="sep"></div>
+    <div style="font-size:12px; color:var(--muted)">
+      Routing selection applies at start (per Task 2). Use Reset to restart.<br/>
+      "Delivered agents (ever)": number of distinct agents that have carried the initial message at least once.
+    </div>
+  </div>
+  <canvas id="dtn-canvas" width="1280" height="720" aria-label="dtnsim canvas"></canvas>
+  <div class="agent-log" id="agent-log">
+    <h2>Agents</h2>
+    <pre id="agent-log-body">(start simulation to see agent status)</pre>
+  </div>
 
   <script src="dtnsim.js"></script>
   <script>
   // Use Emscripten factory pattern for WASM module
   let Module = null;
+  // UI state
+  let running = true;
+  let showEdges = true;
+  let autoRotate = false;
+  let simSpeed = 1.0;
+  let nodeCount = 50;
+  const COMM_RANGE = 80.0; // must match COMM_RANGE in bindings.cpp
+  let simTime = 0.0;       // accumulated simulation time in seconds
+  let fullSpreadTime = null; // time when delivered == agentCount
+  // Camera state
+  let camDist = 600, camYaw = 0.8, camPitch = 0.9;
+  let camTarget = {x:0,y:0,z:0};
+  let bounds = {minx:0,maxx:0,miny:0,maxy:0,minz:0,maxz:0, radius:300};
   function readNodePositionsMeta(Module) {
     if (!Module || typeof Module._dtnsim_get_node_positions !== 'function') throw new Error('WASM Module not initialized');
     const metaPtr = Module._dtnsim_get_node_positions(); // numeric pointer (0 if not available)
@@ -34,6 +125,42 @@
     };
   }
 
+  function readAgentPositionsMeta(Module) {
+    if (!Module || typeof Module._dtnsim_get_agent_positions !== 'function') throw new Error('WASM Module not initialized');
+    const metaPtr = Module._dtnsim_get_agent_positions();
+    if (!metaPtr) { throw new Error('dtnsim_get_agent_positions returned 0'); }
+    const memBuffer = Module.HEAPU8?.buffer;
+    if (!memBuffer) { throw new Error('No WASM HEAPU8 buffer found for agents'); }
+    const heap = Module.HEAPU8;
+    if (heap.byteLength < metaPtr + 24) { throw new Error('Agent metadata out-of-bounds'); }
+    const dv = new DataView(memBuffer, metaPtr, 24);
+    return {
+      positionsPtr: dv.getUint32(0, true),
+      idsPtr: dv.getUint32(4, true),
+      count: dv.getUint32(8, true),
+      stride: dv.getUint32(12, true),
+      version: dv.getUint32(16, true),
+    };
+  }
+
+  function getAgentPositionsArray(Module, meta) {
+    if (!meta || !meta.positionsPtr || meta.count === 0) return null;
+    const memBuffer = Module.HEAPF32?.buffer;
+    if (!memBuffer) { console.warn('No WASM HEAPF32 buffer found for agents'); return null; }
+    const elemOffset = meta.positionsPtr >>> 2;
+    const len = meta.count * 3;
+    if ((elemOffset + len) > Module.HEAPF32.length) { console.warn('Agent positions buffer out-of-bounds'); return null; }
+    return Module.HEAPF32.subarray(elemOffset, elemOffset + len);
+  }
+
+  function getAgentDeliveredFlags(Module, count) {
+    if (!Module || typeof Module._dtnsim_get_agent_delivered_flags !== 'function') return null;
+    const ptr = Module._dtnsim_get_agent_delivered_flags();
+    if (!ptr) return null;
+    if (!Module.HEAPU8 || !Module.HEAPU8.buffer) return null;
+    return new Uint8Array(Module.HEAPU8.buffer, ptr, count);
+  }
+
   function getPositionsFloatArray(Module, meta) {
     if (!meta || !meta.positionsPtr || meta.count === 0) return null;
     const memBuffer = Module.HEAPF32?.buffer;
@@ -46,70 +173,474 @@
   }
 
   (function setupDemo(){
-    const btn = document.getElementById('start-wasm');
+    const btn = document.getElementById('start-sim');
+    const btnPause = document.getElementById('pause-sim');
+    const btnReset = document.getElementById('reset-sim');
+    const btnFit = document.getElementById('fit-view');
+    const btnHelp = document.getElementById('help-btn');
+    const routingSel = document.getElementById('routing-select');
+    const statusEl = document.getElementById('sim-status');
+    const helpEl = document.getElementById('help');
+    const statDelivered = document.getElementById('stat-delivered');
+    const statTx = document.getElementById('stat-tx');
+    const statRx = document.getElementById('stat-rx');
+    const statDup = document.getElementById('stat-dup');
+    const statTime = document.getElementById('stat-time');
+    const speedRange = document.getElementById('speed');
+    const speedLabel = document.getElementById('speed-label');
+    const nodeCountInput = document.getElementById('node-count');
+    const toggleEdges = document.getElementById('toggle-edges');
+    const toggleAutorot = document.getElementById('toggle-autorot');
+    const toggleStats = document.getElementById('toggle-stats');
+    const agentLog = document.getElementById('agent-log-body');
     const canvas = document.getElementById('dtn-canvas');
     const gl = canvas.getContext('webgl');
     if (!gl) { console.warn('WebGL unavailable'); btn.disabled = true; return; }
 
     function compileShader(type, src){ const s=gl.createShader(type); gl.shaderSource(s, src); gl.compileShader(s); if(!gl.getShaderParameter(s, gl.COMPILE_STATUS)){ console.error(gl.getShaderInfoLog(s)); return null; } return s; }
-    const vs = `attribute vec3 a_pos; uniform vec2 u_center; uniform float u_scale; void main(){ vec2 p=(a_pos.xy - u_center) * u_scale; gl_Position = vec4(p,0.0,1.0); gl_PointSize = 3.0; }`;
-    const fs = `precision mediump float; void main(){ gl_FragColor = vec4(0.0,0.6,1.0,1.0); }`;
+    // 3D perspective vertex shader
+    const vs = `
+      attribute vec3 a_pos;
+      uniform mat4 u_proj;
+      uniform mat4 u_view;
+      uniform float u_pointSize;
+      void main(){
+        gl_Position = u_proj * u_view * vec4(a_pos, 1.0);
+        gl_PointSize = u_pointSize;
+      }
+    `;
+    // Fragment shader with depth-based color and background gradient
+    const fs = `
+      precision mediump float;
+      uniform float u_zmin;
+      uniform float u_zmax;
+      uniform vec3 u_tint;
+      void main(){
+        float z = gl_FragCoord.z;
+        float depth = (z - u_zmin) / max(u_zmax - u_zmin, 0.001);
+        vec3 base = mix(vec3(0.1,0.2,0.5), vec3(0.8,0.9,1.0), depth);
+        vec3 color = mix(base, u_tint, 0.6);
+        float r = length(gl_PointCoord - vec2(0.5));
+        if(r > 0.5) discard;
+        gl_FragColor = vec4(color, 1.0 - r*1.5);
+      }
+    `;
     const prog = gl.createProgram(); const sv = compileShader(gl.VERTEX_SHADER, vs); const sf = compileShader(gl.FRAGMENT_SHADER, fs); gl.attachShader(prog, sv); gl.attachShader(prog, sf); gl.linkProgram(prog);
     if(!gl.getProgramParameter(prog, gl.LINK_STATUS)){ console.error(gl.getProgramInfoLog(prog)); btn.disabled=true; return; }
     gl.useProgram(prog);
-    const a_pos = gl.getAttribLocation(prog, 'a_pos'); const u_center = gl.getUniformLocation(prog, 'u_center'); const u_scale = gl.getUniformLocation(prog, 'u_scale');
+    const a_pos = gl.getAttribLocation(prog, 'a_pos');
+    const u_proj = gl.getUniformLocation(prog, 'u_proj');
+    const u_view = gl.getUniformLocation(prog, 'u_view');
+    const u_zmin = gl.getUniformLocation(prog, 'u_zmin');
+    const u_zmax = gl.getUniformLocation(prog, 'u_zmax');
+    const u_pointSize = gl.getUniformLocation(prog, 'u_pointSize');
+    const u_tint = gl.getUniformLocation(prog, 'u_tint');
     const buf = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, buf); gl.enableVertexAttribArray(a_pos); gl.vertexAttribPointer(a_pos, 3, gl.FLOAT, false, 0, 0);
+    // Edge buffer for lines
+    const edgeBuf = gl.createBuffer();
+    // Agent buffer for moving agents
+    const agentBuf = gl.createBuffer();
+    // Range buffer for communication spheres (wireframe)
+    const rangeBuf = gl.createBuffer();
+    // Starfield background buffer
+    const starBuf = gl.createBuffer();
 
     let lastVersion = 0;
+    let positionsArray = null; // graph node positions
+    let agentPositions = null; // agent positions
+    let edgeVertsArray = null;
+    let rangeVertsArray = null; // per-agent communication ranges
+    let starCount = 0;
+
+    // Generate a simple starfield in a large sphere around the origin
+    {
+      const starVerts = [];
+      const STAR_COUNT = 400;
+      const R = 3000.0;
+      for (let i = 0; i < STAR_COUNT; i++) {
+        // random point on a sphere of radius R
+        const u = Math.random();
+        const v = Math.random();
+        const theta = 2 * Math.PI * u;
+        const phi = Math.acos(2*v - 1);
+        const sx = R * Math.sin(phi) * Math.cos(theta);
+        const sy = R * Math.sin(phi) * Math.sin(theta);
+        const sz = R * Math.cos(phi);
+        starVerts.push(sx, sy, sz);
+      }
+      starCount = STAR_COUNT;
+      gl.bindBuffer(gl.ARRAY_BUFFER, starBuf);
+      gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(starVerts), gl.STATIC_DRAW);
+    }
+
+    // UI wiring
+    speedRange.addEventListener('input', ()=>{ simSpeed = parseFloat(speedRange.value); speedLabel.textContent = simSpeed.toFixed(1) + 'x'; });
+    nodeCountInput.addEventListener('change', ()=>{ nodeCount = Math.max(10, Math.min(1000, parseInt(nodeCountInput.value||'50',10))); nodeCountInput.value = nodeCount; });
+    toggleEdges.addEventListener('change', ()=>{ showEdges = toggleEdges.checked; });
+    toggleAutorot.addEventListener('change', ()=>{ autoRotate = toggleAutorot.checked; });
+    toggleStats.addEventListener('change', ()=>{ document.getElementById('dtn-stats').style.display = toggleStats.checked ? 'block' : 'none'; });
+    btnPause.addEventListener('click', ()=>{ running = !running; btnPause.textContent = running ? 'Pause' : 'Resume'; statusEl.textContent = running ? 'running' : 'paused'; });
+    btnReset.addEventListener('click', ()=>{
+      if(Module?._dtnsim_reset) Module._dtnsim_reset();
+      lastVersion = 0;
+      simTime = 0.0;
+      fullSpreadTime = null;
+      if (statTime) statTime.textContent = '-';
+    });
+    btnFit.addEventListener('click', ()=>{ fitView(); });
+    btnHelp.addEventListener('click', ()=>{ helpEl.style.display = helpEl.style.display==='none' ? 'block' : 'none'; });
     btn.addEventListener('click', async () => {
-      console.log('Start button clicked');
+      // Ensure Module is loaded, but do not auto-start
       if (!Module) {
+        statusEl.textContent = 'loading...';
         btn.disabled = true;
         btn.textContent = 'Loading WASM...';
         Module = await createDTNSIMModule();
-        btn.textContent = 'Start WASM demo';
+        btn.textContent = 'Start Simulation';
         btn.disabled = false;
-        console.log('WASM module loaded');
+        statusEl.textContent = 'ready';
+        // After loading, start the simulation
+        startWasmDemo();
+        return;
       }
+      // If Module is already loaded, start immediately
+      startWasmDemo();
 
       function startWasmDemo() {
-        console.log('WASM runtime initialized');
-        // Debug: log HEAPU8/HEAPF32 objects
-        console.log('Module.HEAPU8:', Module.HEAPU8);
-        console.log('Module.HEAPF32:', Module.HEAPF32);
+        statusEl.textContent = 'running';
+        // Get routing algorithm from selector
+        const routing = routingSel.value;
+        // Emscripten: use allocateUTF8OnStack if available, else pass as JS string (assume embind or cwrap handles conversion)
+        let routingPtr = 0;
+        if (Module.allocateUTF8OnStack) {
+          routingPtr = Module.allocateUTF8OnStack(routing);
+        } else if (Module._malloc && Module.lengthBytesUTF8 && Module.stringToUTF8) {
+          const len = Module.lengthBytesUTF8(routing) + 1;
+          routingPtr = Module._malloc(len);
+          Module.stringToUTF8(routing, routingPtr, len);
+        } else {
+          routingPtr = routing; // fallback: pass as JS string (may work with embind/cwrap)
+        }
+        // Reset then init with selected routing (startup-only)
+        if (Module._dtnsim_reset) Module._dtnsim_reset();
+        Module._dtnsim_init(nodeCount, routingPtr);
+        // Reset time stats for this new run
+        simTime = 0.0;
+        fullSpreadTime = null;
+        if (statTime) statTime.textContent = '-';
+        if (Module._free && routingPtr && Module.allocateUTF8OnStack === undefined) {
+          Module._free(routingPtr);
+        }
 
-        // Initialize simulation (example: 100 agents)
-        Module._dtnsim_init(100);
-        console.log('dtnsim_init called');
+        // Camera + controls
+        let isDragging = false, lastX = 0, lastY = 0, panMode = false;
+        function cameraAxes(){
+          const up=[0,0,1];
+          const f=[Math.cos(camYaw)*Math.sin(camPitch), Math.sin(camYaw)*Math.sin(camPitch), Math.cos(camPitch)];
+          const s=[up[1]*f[2]-up[2]*f[1], up[2]*f[0]-up[0]*f[2], up[0]*f[1]-up[1]*f[0]];
+          const sn=Math.hypot(...s); const s_=[s[0]/sn,s[1]/sn,s[2]/sn];
+          const u_=[s_[1]*f[2]-s_[2]*f[1], s_[2]*f[0]-s_[0]*f[2], s_[0]*f[1]-s_[1]*f[0]];
+          return {f, s: s_, u: u_};
+        }
+        function getViewMatrix(){
+          const ex = camTarget.x + camDist * Math.cos(camYaw) * Math.sin(camPitch);
+          const ey = camTarget.y + camDist * Math.sin(camYaw) * Math.sin(camPitch);
+          const ez = camTarget.z + camDist * Math.cos(camPitch);
+          const up=[0,0,1];
+          const f=[(camTarget.x-ex),(camTarget.y-ey),(camTarget.z-ez)];
+          const fn=Math.hypot(...f); const f_=[f[0]/fn,f[1]/fn,f[2]/fn];
+          const s=[up[1]*f_[2]-up[2]*f_[1], up[2]*f_[0]-up[0]*f_[2], up[0]*f_[1]-up[1]*f_[0]];
+          const sn=Math.hypot(...s); const s_=[s[0]/sn,s[1]/sn,s[2]/sn];
+          const u_=[s_[1]*f_[2]-s_[2]*f_[1], s_[2]*f_[0]-s_[0]*f_[2], s_[0]*f_[1]-s_[1]*f_[0]];
+          return new Float32Array([
+            s_[0], u_[0], -f_[0], 0,
+            s_[1], u_[1], -f_[1], 0,
+            s_[2], u_[2], -f_[2], 0,
+            -(s_[0]*ex + s_[1]*ey + s_[2]*ez), -(u_[0]*ex + u_[1]*ey + u_[2]*ez), (f_[0]*ex + f_[1]*ey + f_[2]*ez), 1
+          ]);
+        }
+        function getProjMatrix(){
+          const fov = Math.PI/4, aspect = canvas.width/canvas.height;
+          const near = Math.max(1.0, camDist - bounds.radius*3.0);
+          const far = camDist + bounds.radius*3.0;
+          const f = 1.0/Math.tan(fov/2);
+          return new Float32Array([
+            f/aspect,0,0,0,
+            0,f,0,0,
+            0,0,(far+near)/(near-far),-1,
+            0,0,(2*far*near)/(near-far),0
+          ]);
+        }
+        function fitView(){
+          camTarget.x = (bounds.minx + bounds.maxx)/2;
+          camTarget.y = (bounds.miny + bounds.maxy)/2;
+          camTarget.z = (bounds.minz + bounds.maxz)/2;
+          const diag = Math.hypot(bounds.maxx-bounds.minx, bounds.maxy-bounds.miny, bounds.maxz-bounds.minz);
+          bounds.radius = Math.max(1, diag*0.5);
+          camDist = Math.max(100, bounds.radius*2.5);
+        }
+        function resetView(){ camYaw=0.8; camPitch=0.9; fitView(); }
+        canvas.addEventListener('contextmenu', e=>e.preventDefault());
+        canvas.addEventListener('mousedown', e => {
+          isDragging = true; lastX = e.clientX; lastY = e.clientY; panMode = e.button===2 || e.shiftKey; });
+        window.addEventListener('mousemove', e => {
+          if (!isDragging) return; const dx = e.clientX - lastX, dy = e.clientY - lastY; lastX=e.clientX; lastY=e.clientY;
+          if (panMode){
+            const axes = cameraAxes();
+            const fov = Math.PI/4; const scale = Math.tan(fov/2) * (camDist / (canvas.height/2));
+            camTarget.x -= (axes.s[0]*dx + axes.u[0]*-dy) * scale;
+            camTarget.y -= (axes.s[1]*dx + axes.u[1]*-dy) * scale;
+            camTarget.z -= (axes.s[2]*dx + axes.u[2]*-dy) * scale;
+          } else {
+            camYaw += dx * 0.01; camPitch += dy * 0.01; camPitch = Math.max(0.1, Math.min(Math.PI-0.1, camPitch));
+          }
+        });
+        window.addEventListener('mouseup', () => { isDragging = false; });
+        canvas.addEventListener('wheel', e => { camDist *= (1 + e.deltaY * 0.001); camDist = Math.max(10, Math.min(100000, camDist)); e.preventDefault(); }, { passive: false });
+        window.addEventListener('keydown', (e)=>{
+          if(e.key===' '){ running=!running; btnPause.textContent = running ? 'Pause' : 'Resume'; statusEl.textContent = running ? 'running' : 'paused'; e.preventDefault(); }
+          else if(e.key==='f' || e.key==='F'){ fitView(); }
+          else if(e.key==='r' || e.key==='R'){ resetView(); }
+          else if(e.key==='a' || e.key==='A'){ autoRotate=!autoRotate; toggleAutorot.checked=autoRotate; }
+        });
 
-        // Animation loop
         function frame() {
           try {
-            console.log('frame called');
-            console.log('Module keys:', Object.keys(Module));
-            Module._dtnsim_step(0.016);
+            if (running) {
+              const dt = 0.016 * simSpeed;
+              Module._dtnsim_step(dt);
+              simTime += dt;
+            }
+            if (autoRotate) camYaw += 0.002 * simSpeed;
+            // Update stats
+            let deliveredCount = 0;
+            if (Module._dtnsim_get_stats) {
+              const statsPtr = Module._dtnsim_get_stats();
+              // RoutingStats: { uint32 delivered, tx, rx, duplicates }
+              const stats = new Uint32Array(Module.HEAPU8.buffer, statsPtr, 4);
+              deliveredCount = stats[0];
+              statDelivered.textContent = deliveredCount;
+              statTx.textContent = stats[1];
+              statRx.textContent = stats[2];
+              statDup.textContent = stats[3];
+            }
             const meta = readNodePositionsMeta(Module);
-            console.log('meta:', meta);
             if (meta && meta.version !== lastVersion) {
               lastVersion = meta.version;
               const arr = getPositionsFloatArray(Module, meta);
-              console.log('arr:', arr);
               if (arr && arr.length > 0) {
-                gl.bindBuffer(gl.ARRAY_BUFFER, buf);
-                gl.bufferData(gl.ARRAY_BUFFER, arr, gl.DYNAMIC_DRAW);
-                // Center and scale
-                let minx=1e9,maxx=-1e9,miny=1e9,maxy=-1e9;
+                positionsArray = arr;
+                // Build edge vertex array (lines between neighbors)
+                if (showEdges) {
+                  let edgeVerts = [];
+                  const k = 3;
+                  for(let i=0;i<arr.length/3;i++){
+                    let dists = [];
+                    for(let j=0;j<arr.length/3;j++){
+                      if(i===j) continue;
+                      let dx=arr[i*3]-arr[j*3],dy=arr[i*3+1]-arr[j*3+1],dz=arr[i*3+2]-arr[j*3+2];
+                      let dist2=dx*dx+dy*dy+dz*dz;
+                      dists.push({j,dist2});
+                    }
+                    dists.sort((a,b)=>a.dist2-b.dist2);
+                    for(let n=0;n<k;n++){
+                      let j=dists[n].j;
+                      edgeVerts.push(arr[i*3],arr[i*3+1],arr[i*3+2]);
+                      edgeVerts.push(arr[j*3],arr[j*3+1],arr[j*3+2]);
+                    }
+                  }
+                  edgeVertsArray = new Float32Array(edgeVerts);
+                  gl.bindBuffer(gl.ARRAY_BUFFER, edgeBuf);
+                  gl.bufferData(gl.ARRAY_BUFFER, edgeVertsArray, gl.DYNAMIC_DRAW);
+                }
+                // Draw edges
+                gl.useProgram(prog);
+                // Find bounds for camera
+                let minx=1e9,maxx=-1e9,miny=1e9,maxy=-1e9,minz=1e9,maxz=-1e9;
                 for(let i=0;i<arr.length;i+=3){
                   if(arr[i]<minx)minx=arr[i];if(arr[i]>maxx)maxx=arr[i];
                   if(arr[i+1]<miny)miny=arr[i+1];if(arr[i+1]>maxy)maxy=arr[i+1];
+                  if(arr[i+2]<minz)minz=arr[i+2];if(arr[i+2]>maxz)maxz=arr[i+2];
                 }
-                const cx=(minx+maxx)/2,cy=(miny+maxy)/2;
-                const scale=2/Math.max(maxx-minx,maxy-miny,1);
-                gl.uniform2f(u_center,cx,cy);
-                gl.uniform1f(u_scale,scale);
-                gl.clearColor(0.06, 0.07, 0.10, 1.0); // 適宜微調整
-                gl.clear(gl.COLOR_BUFFER_BIT);
+                bounds = {minx,maxx,miny,maxy,minz,maxz, radius: Math.max(1, Math.hypot(maxx-minx,maxy-miny,maxz-minz)*0.5)};
+                if (lastVersion === 1) { // first frame after init
+                  camTarget.x=(minx+maxx)/2; camTarget.y=(miny+maxy)/2; camTarget.z=(minz+maxz)/2; camDist=Math.max(100, bounds.radius*2.5);
+                }
+                gl.uniformMatrix4fv(u_proj, false, getProjMatrix());
+                gl.uniformMatrix4fv(u_view, false, getViewMatrix());
+                gl.uniform1f(u_zmin, minz);
+                gl.uniform1f(u_zmax, maxz);
+                gl.clearColor(0.02, 0.03, 0.08, 1.0);
+                gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+                gl.enable(gl.DEPTH_TEST);
+                gl.vertexAttribPointer(a_pos, 3, gl.FLOAT, false, 0, 0);
+
+                // Starfield background (distant points)
+                gl.disable(gl.DEPTH_TEST);
+                gl.bindBuffer(gl.ARRAY_BUFFER, starBuf);
+                gl.vertexAttribPointer(a_pos, 3, gl.FLOAT, false, 0, 0);
+                gl.uniform1f(u_pointSize, 3.0);
+                gl.uniform3f(u_tint, 0.8, 0.9, 1.0);
+                gl.drawArrays(gl.POINTS, 0, starCount);
+                gl.enable(gl.DEPTH_TEST);
+
+                // Draw edges with a subtle bluish tint
+                if (showEdges && edgeVertsArray) {
+                  gl.bindBuffer(gl.ARRAY_BUFFER, edgeBuf);
+                  gl.vertexAttribPointer(a_pos, 3, gl.FLOAT, false, 0, 0);
+                  gl.uniform1f(u_pointSize, 1.0); // ignored for lines
+                  gl.uniform3f(u_tint, 0.6, 0.8, 1.0);
+                  gl.drawArrays(gl.LINES,0,edgeVertsArray.length/3);
+                }
+                // Draw per-agent communication ranges as wireframe rings on principal axes
+                if (agentPositions && agentPositions.length > 0) {
+                  const countAgents = agentPositions.length / 3;
+                  const segments = 24;
+                  const rangeVerts = [];
+                  for (let i = 0; i < countAgents; i++) {
+                    const cx = agentPositions[i*3+0];
+                    const cy = agentPositions[i*3+1];
+                    const cz = agentPositions[i*3+2];
+                    // Only draw spheres for agents that have ever been delivered (if flags available)
+                    const flagsForRanges = getAgentDeliveredFlags(Module, countAgents);
+                    if (flagsForRanges && !flagsForRanges[i]) continue;
+                    // 3 orthogonal great circles: XY, XZ, YZ planes around the agent
+                    // XY plane circle at z = cz
+                    for (let s = 0; s < segments; s++) {
+                      const t0 = (2*Math.PI * s) / segments;
+                      const t1 = (2*Math.PI * (s+1)) / segments;
+                      const x0 = cx + COMM_RANGE * Math.cos(t0);
+                      const y0 = cy + COMM_RANGE * Math.sin(t0);
+                      const x1 = cx + COMM_RANGE * Math.cos(t1);
+                      const y1 = cy + COMM_RANGE * Math.sin(t1);
+                      rangeVerts.push(x0, y0, cz);
+                      rangeVerts.push(x1, y1, cz);
+                    }
+                    // XZ plane circle at y = cy
+                    for (let s = 0; s < segments; s++) {
+                      const t0 = (2*Math.PI * s) / segments;
+                      const t1 = (2*Math.PI * (s+1)) / segments;
+                      const x0 = cx + COMM_RANGE * Math.cos(t0);
+                      const z0 = cz + COMM_RANGE * Math.sin(t0);
+                      const x1 = cx + COMM_RANGE * Math.cos(t1);
+                      const z1 = cz + COMM_RANGE * Math.sin(t1);
+                      rangeVerts.push(x0, cy, z0);
+                      rangeVerts.push(x1, cy, z1);
+                    }
+                    // YZ plane circle at x = cx
+                    for (let s = 0; s < segments; s++) {
+                      const t0 = (2*Math.PI * s) / segments;
+                      const t1 = (2*Math.PI * (s+1)) / segments;
+                      const y0 = cy + COMM_RANGE * Math.cos(t0);
+                      const z0 = cz + COMM_RANGE * Math.sin(t0);
+                      const y1 = cy + COMM_RANGE * Math.cos(t1);
+                      const z1 = cz + COMM_RANGE * Math.sin(t1);
+                      rangeVerts.push(cx, y0, z0);
+                      rangeVerts.push(cx, y1, z1);
+                    }
+                  }
+                  rangeVertsArray = new Float32Array(rangeVerts);
+                  gl.bindBuffer(gl.ARRAY_BUFFER, rangeBuf);
+                  gl.bufferData(gl.ARRAY_BUFFER, rangeVertsArray, gl.DYNAMIC_DRAW);
+                  gl.vertexAttribPointer(a_pos, 3, gl.FLOAT, false, 0, 0);
+                  gl.uniform1f(u_pointSize, 1.0);
+                  // Slightly desaturated yellow so it doesn't overpower agents
+                  gl.uniform3f(u_tint, 0.95, 0.9, 0.4);
+                  gl.drawArrays(gl.LINES, 0, rangeVertsArray.length/3);
+                }
+                // Draw graph nodes (static)
+                gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+                gl.bufferData(gl.ARRAY_BUFFER, arr, gl.DYNAMIC_DRAW);
+                gl.vertexAttribPointer(a_pos, 3, gl.FLOAT, false, 0, 0);
+                gl.uniform1f(u_pointSize, 7.0);
+                gl.uniform3f(u_tint, 0.7, 0.8, 1.0);
                 gl.drawArrays(gl.POINTS,0,arr.length/3);
+
+                // Draw agents (dynamic) if available
+                const agentMeta = readAgentPositionsMeta(Module);
+                const agentsArr = getAgentPositionsArray(Module, agentMeta);
+                if (agentsArr && agentsArr.length > 0) {
+                  agentPositions = agentsArr;
+                  const flags = getAgentDeliveredFlags(Module, agentMeta.count);
+                  // Optional agent IDs (may be null)
+                  let ids = null;
+                  if (agentMeta.idsPtr) {
+                    try {
+                      ids = new Uint32Array(Module.HEAPU8.buffer, agentMeta.idsPtr, agentMeta.count);
+                    } catch {
+                      ids = null;
+                    }
+                  }
+                  gl.bindBuffer(gl.ARRAY_BUFFER, agentBuf);
+                  gl.enableVertexAttribArray(a_pos);
+                  if (flags) {
+                    const infected = [];
+                    const clean = [];
+                    for (let i = 0; i < agentMeta.count; i++) {
+                      const x = agentPositions[i*3+0];
+                      const y = agentPositions[i*3+1];
+                      const z = agentPositions[i*3+2];
+                      if (flags[i]) {
+                        infected.push(x,y,z);
+                      } else {
+                        clean.push(x,y,z);
+                      }
+                    }
+                    if (clean.length > 0) {
+                      const cleanArr = new Float32Array(clean);
+                      gl.bufferData(gl.ARRAY_BUFFER, cleanArr, gl.DYNAMIC_DRAW);
+                      gl.vertexAttribPointer(a_pos, 3, gl.FLOAT, false, 0, 0);
+                      gl.uniform1f(u_pointSize, 14.0);
+                      // Undelivered agents: cooler accent
+                      gl.uniform3f(u_tint, 0.4, 0.8, 0.6);
+                      gl.drawArrays(gl.POINTS, 0, cleanArr.length/3);
+                    }
+                    if (infected.length > 0) {
+                      const infArr = new Float32Array(infected);
+                      gl.bufferData(gl.ARRAY_BUFFER, infArr, gl.DYNAMIC_DRAW);
+                      gl.vertexAttribPointer(a_pos, 3, gl.FLOAT, false, 0, 0);
+                      gl.uniform1f(u_pointSize, 18.0);
+                      // Delivered agents: warm highlight
+                      gl.uniform3f(u_tint, 0.98, 0.55, 0.25);
+                      gl.drawArrays(gl.POINTS, 0, infArr.length/3);
+                    }
+                  } else {
+                    // Fallback: draw all agents with a single warm tint
+                    gl.bufferData(gl.ARRAY_BUFFER, agentPositions, gl.DYNAMIC_DRAW);
+                    gl.vertexAttribPointer(a_pos, 3, gl.FLOAT, false, 0, 0);
+                    gl.uniform1f(u_pointSize, 16.0);
+                    gl.uniform3f(u_tint, 0.98, 0.55, 0.25);
+                    gl.drawArrays(gl.POINTS,0,agentPositions.length/3);
+                  }
+
+                  // Update right-side agent status log (bright green text)
+                  if (agentLog) {
+                    const maxLines = 64;
+                    let lines = [];
+                    for (let i = 0; i < agentMeta.count && i < maxLines; i++) {
+                      const id = ids ? ids[i] : i;
+                      const x = agentPositions[i*3+0];
+                      const y = agentPositions[i*3+1];
+                      const z = agentPositions[i*3+2];
+                      const delivered = flags ? !!flags[i] : false;
+                      const state = delivered ? 'DELIVERED' : 'pending';
+                      lines.push(`#${id.toString().padStart(3,' ')}  ${state.padEnd(9,' ')}  pos=(${x.toFixed(0)}, ${y.toFixed(0)}, ${z.toFixed(0)})`);
+                    }
+                    if (agentMeta.count > maxLines) {
+                      lines.push(`... and ${agentMeta.count - maxLines} more agents`);
+                    }
+                    agentLog.textContent = lines.join("\n");
+                  }
+
+                  // Check for full spread: delivered agents == total agents
+                  if (agentMeta.count > 0 && fullSpreadTime === null && deliveredCount === agentMeta.count) {
+                    fullSpreadTime = simTime;
+                    console.log('Full spread achieved at', fullSpreadTime, 'seconds');
+                  }
+                  if (statTime) {
+                    statTime.textContent = fullSpreadTime != null ? fullSpreadTime.toFixed(2) : '-';
+                  }
+                }
               } else {
                 console.warn('No positions to draw');
               }
@@ -117,22 +648,18 @@
             requestAnimationFrame(frame);
           } catch (e) {
             console.error('WASM frame error:', e);
-            const status = document.getElementById('dtn-status');
-            if (status) status.textContent = 'WASM error: ' + e.message;
+            statusEl.textContent = 'WASM error: ' + e.message;
           }
         }
         requestAnimationFrame(frame);
       }
-
-      // If runtime already initialized, start immediately
-      if (Module.calledRun || Module._dtnsim_init) {
-        startWasmDemo();
-      } else {
-        Module.onRuntimeInitialized = startWasmDemo;
+      // Do not auto-start; require explicit Start Simulation click
+      // If runtime just initialized, keep status updated
+      if (Module && Module.onRuntimeInitialized) {
+        Module.onRuntimeInitialized = () => { statusEl.textContent = 'ready'; };
       }
     });
   })();
-    // ...existing code...
   </script>
 </body>
 </html>

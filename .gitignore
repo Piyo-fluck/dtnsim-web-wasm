@@ -18,3 +18,10 @@ Thumbs.db
 # Temporary files
 *.tmp
 *.swp
+docs/
+# wasm build artifacts
+wasm/build/
+wasm/CMakeFiles/
+wasm/CMakeCache.txt
+wasm/cmake_install.cmake
+wasm/Makefile
